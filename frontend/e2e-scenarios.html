@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – 10 End-to-End Scenarios</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f14; color: #e4e4e7; }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 { margin: 0 0 8px; }
+    .header p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .run-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #1e1e24;
+      border-radius: 8px;
+    }
+    .run-bar button {
+      padding: 10px 20px;
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .run-bar button:hover { background: #2563eb; }
+    .run-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .run-bar .status { font-size: 14px; color: #a1a1aa; }
+    .scenario-list { display: flex; flex-direction: column; gap: 12px; }
+    .scenario-card {
+      background: #1e1e24;
+      border-radius: 8px;
+      padding: 16px;
+      border-left: 4px solid #3b82f6;
+    }
+    .scenario-card.pass { border-left-color: #22c55e; }
+    .scenario-card.fail { border-left-color: #ef4444; }
+    .scenario-card.pending { border-left-color: #71717a; opacity: 0.7; }
+    .scenario-card.running { border-left-color: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: 0.9; } }
+    .scenario-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .scenario-icon { font-size: 24px; }
+    .scenario-name { font-weight: 600; font-size: 15px; }
+    .scenario-steps { font-size: 12px; color: #a1a1aa; margin-top: 8px; }
+    .scenario-steps span { display: inline-block; margin-right: 12px; }
+    .scenario-steps .ok { color: #22c55e; }
+    .scenario-steps .err { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SafeCover – 10 End-to-End Scenarios</h1>
+    <p>Quote → Bind → Policy for each industry. Run all to verify the platform.</p>
+  </div>
+  <div class="container">
+    <div class="run-bar">
+      <button id="run-all">Run all 10 scenarios</button>
+      <span class="status" id="status">Ready</span>
+    </div>
+    <div class="scenario-list" id="scenario-list"></div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      var scenarios = [
+        { id: 'retail', name: 'Retail & E-commerce', icon: '🛒', items: [{ value: 89 }, { value: 24 }] },
+        { id: 'logistics', name: 'Logistics & Shipping', icon: '📦', items: [{ value: 450 }, { value: 35 }] },
+        { id: 'healthcare', name: 'Healthcare', icon: '🏥', items: [{ value: 120 }, { value: 85 }] },
+        { id: 'hospitality', name: 'Hospitality & Travel', icon: '🏨', items: [{ value: 420 }, { value: 45 }] },
+        { id: 'food', name: 'Food & Delivery', icon: '🍔', items: [{ value: 24 }, { value: 12 }, { value: 4 }] },
+        { id: 'cyber', name: 'Cyber & Digital', icon: '🔒', items: [{ value: 89 }, { value: 29 }] },
+        { id: 'mobility', name: 'Mobility & Gig', icon: '🚗', items: [{ value: 18 }, { value: 12 }] },
+        { id: 'parametric', name: 'Parametric', icon: '🌦️', items: [{ value: 45 }, { value: 2 }] },
+        { id: 'gadgets', name: 'Gadgets & Electronics', icon: '📱', items: [{ value: 999 }, { value: 29 }] },
+        { id: 'events', name: 'Events & Ticketing', icon: '🎫', items: [{ value: 199 }, { value: 25 }] }
+      ];
+
+      function renderCards() {
+        var list = document.getElementById('scenario-list');
+        list.innerHTML = scenarios.map(function (s) {
+          return '<div class="scenario-card pending" data-id="' + s.id + '">' +
+            '<div class="scenario-header"><span class="scenario-icon">' + s.icon + '</span><span class="scenario-name">' + s.name + '</span></div>' +
+            '<div class="scenario-steps">Quote: — | Bind: — | Policy: —</div></div>';
+        }).join('');
+      }
+
+      function updateCard(id, state, steps) {
+        var card = document.querySelector('.scenario-card[data-id="' + id + '"]');
+        if (!card) return;
+        card.className = 'scenario-card ' + state;
+        if (steps) card.querySelector('.scenario-steps').innerHTML = steps;
+      }
+
+      function runScenario(s) {
+        return new Promise(function (resolve) {
+          updateCard(s.id, 'running', 'Quote: … | Bind: … | Policy: …');
+          var steps = { quote: null, bind: null, policyId: null };
+
+          fetch(API + '/api/quote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: s.items, scenario: s.id })
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (q) {
+              steps.quote = q.premium != null ? '$' + q.premium.toFixed(2) : 'err';
+              updateCard(s.id, 'running', 'Quote: <span class="' + (q.premium != null ? 'ok' : 'err') + '">' + steps.quote + '</span> | Bind: … | Policy: …');
+              return fetch(API + '/api/policy/bind', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  quote_id: q.quote_id || 'QTY' + Date.now(),
+                  transaction_id: 'ORD_' + Date.now() + '_' + s.id,
+                  customer: { email: 'e2e@test.com', name: 'E2E User' },
+                  premium_paid: q.premium || 1,
+                  scenario: s.id
+                })
+              });
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (b) {
+              steps.bind = b.policy_id ? 'ok' : (b.error || 'err');
+              steps.policyId = b.policy_id || '—';
+              var bindCls = b.policy_id ? 'ok' : 'err';
+              updateCard(s.id, b.policy_id ? 'pass' : 'fail',
+                'Quote: <span class="ok">' + (steps.quote || '—') + '</span> | Bind: <span class="' + bindCls + '">' + steps.bind + '</span> | Policy: <span class="' + bindCls + '">' + steps.policyId + '</span>');
+              resolve({ id: s.id, pass: !!b.policy_id });
+            })
+            .catch(function (e) {
+              updateCard(s.id, 'fail', 'Quote: <span class="err">err</span> | Bind: <span class="err">err</span> | Policy: —');
+              resolve({ id: s.id, pass: false });
+            });
+        });
+      }
+
+      function runAll() {
+        var btn = document.getElementById('run-all');
+        var status = document.getElementById('status');
+        btn.disabled = true;
+        status.textContent = 'Running…';
+        renderCards();
+
+        Promise.all(scenarios.map(function (s) { return runScenario(s); }))
+          .then(function (res) {
+            var passed = res.filter(function (r) { return r.pass; }).length;
+            status.textContent = 'Done: ' + passed + '/10 passed';
+            btn.disabled = false;
+          })
+          .catch(function () {
+            status.textContent = 'Done';
+            btn.disabled = false;
+          });
+      }
+
+      renderCards();
+      document.getElementById('run-all').onclick = runAll;
+    })();
+  </script>
+</body>
+</html>

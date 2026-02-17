@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Buy Protection</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 { margin: 0 0 8px; }
+    .header p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .card h2 { margin: 0 0 16px; font-size: 1.2rem; }
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .product-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .product-card:hover { border-color: #1a1a2e; }
+    .product-card h3 { margin: 0 0 8px; font-size: 1rem; }
+    .product-card p { margin: 0; font-size: 0.95rem; color: #666; }
+    .product-card .price { font-weight: 700; color: #1a1a2e; margin-top: 8px; }
+    .policies-list { list-style: none; padding: 0; margin: 0; }
+    .policies-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .policies-list li:last-child { border-bottom: none; }
+    .badge { font-size: 13px; color: #0a7c42; }
+    .btn { padding: 10px 20px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: #16213e; }
+    .btn-secondary { background: #666; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tabs button { padding: 10px 20px; border: 1px solid #ddd; background: #fff; border-radius: 8px; cursor: pointer; }
+    .tabs button.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+    .blockchain-badge { font-size: 11px; color: #666; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SafeCover B2C Portal</h1>
+    <p>Buy micro-insurance directly. Protection for travel, shipping, gadgets & more.</p>
+  </div>
+  <div class="container">
+    <div class="tabs">
+      <button class="tab active" data-tab="products">Products</button>
+      <button class="tab" data-tab="policies">My Policies</button>
+    </div>
+    <div id="products-tab" class="tab-content">
+      <div class="card">
+        <h2>Choose protection</h2>
+        <p style="font-size: 14px; color: #666; margin-bottom: 16px;">Select a product to get a quote:</p>
+        <div class="product-grid" id="product-grid"></div>
+      </div>
+    </div>
+    <div id="policies-tab" class="tab-content" style="display: none;">
+      <div class="card">
+        <h2>My policies</h2>
+        <p style="font-size: 14px; color: #666; margin-bottom: 16px;">Enter your email to view policies:</p>
+        <input type="email" id="policy-email" placeholder="your@email.com" style="padding: 10px; width: 100%; max-width: 300px; margin-bottom: 16px; border: 1px solid #ddd; border-radius: 6px;">
+        <button class="btn" id="load-policies">Load policies</button>
+        <ul class="policies-list" id="policies-list" style="margin-top: 20px;"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      var products = [
+        { id: 'shipping', name: 'Shipping protection', desc: 'Cover parcels in transit', value: 100 },
+        { id: 'travel', name: 'Travel insurance', desc: 'Trip delay & cancellation', value: 250 },
+        { id: 'gadget', name: 'Gadget cover', desc: 'Phone/laptop protection', value: 500 },
+      ];
+
+      document.querySelectorAll('.tab').forEach(function (btn) {
+        btn.onclick = function () {
+          document.querySelectorAll('.tab').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          document.getElementById('products-tab').style.display = btn.dataset.tab === 'products' ? 'block' : 'none';
+          document.getElementById('policies-tab').style.display = btn.dataset.tab === 'policies' ? 'block' : 'none';
+        };
+      });
+
+      var grid = document.getElementById('product-grid');
+      products.forEach(function (p) {
+        var div = document.createElement('div');
+        div.className = 'product-card';
+        div.innerHTML = '<h3>' + p.name + '</h3><p>' + p.desc + '</p><div class="price">From $' + (p.value * 0.003).toFixed(2) + '</div><div class="blockchain-badge">Secured on Blockchain</div>';
+        div.onclick = function () {
+          fetch(API + '/api/quote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+            body: JSON.stringify({ items: [{ value: p.value }], scenario: 'retail' })
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (q) {
+              if (confirm('Quote: $' + q.premium.toFixed(2) + ' for ' + p.name + '. Open checkout?')) {
+                window.location.href = '/checkout-ux-demo.html';
+              }
+            });
+        };
+        grid.appendChild(div);
+      });
+
+      document.getElementById('load-policies').onclick = function () {
+        var email = document.getElementById('policy-email').value;
+        if (!email) { alert('Enter your email'); return; }
+        fetch(API + '/api/policies?email=' + encodeURIComponent(email), {
+          headers: { 'X-API-Key': 'demo' }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var ul = document.getElementById('policies-list');
+            ul.innerHTML = '';
+            if (!data.policies || data.policies.length === 0) {
+              ul.innerHTML = '<li>No policies found</li>';
+              return;
+            }
+            data.policies.forEach(function (p) {
+              var li = document.createElement('li');
+              li.innerHTML = '<span><strong>' + p.policy_id + '</strong> – ' + p.provider_name + ' ' + (p.plan_id || '') + ' – $' + (p.premium || 0).toFixed(2) + '</span><span class="badge">Secured on Blockchain</span>';
+              ul.appendChild(li);
+            });
+          });
+      };
+    })();
+  </script>
+</body>
+</html>

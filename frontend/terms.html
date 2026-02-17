@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms & Conditions</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; margin-top: 24px; }
+    p { margin: 12px 0; }
+    .provider { font-size: 0.9rem; color: #666; margin-bottom: 24px; }
+    a { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <div class="provider" id="provider-name">Protection Terms</div>
+  <h1>Terms & Conditions</h1>
+  <p><strong>Goods-in-Transit Insurance</strong></p>
+  <h2>1. Coverage</h2>
+  <p>This policy covers loss, damage or theft of insured goods during transit from the point of dispatch to the point of delivery. Coverage is subject to the limits and exclusions set out in your policy schedule.</p>
+  <h2>2. Policy Period</h2>
+  <p>Coverage begins at the time of dispatch and continues for the duration specified in your plan (e.g. 7, 14 or 30 days from shipment date).</p>
+  <h2>3. Exclusions</h2>
+  <p>Coverage does not apply to: wear and tear; gradual deterioration; inherent vice; confiscation; war or terrorism; nuclear risks; or goods shipped in contravention of carrier terms.</p>
+  <h2>4. Claims</h2>
+  <p>Claims must be reported within 30 days of discovery. You will need to provide proof of purchase, shipping documentation, and evidence of loss or damage. Claims are subject to verification and approval.</p>
+  <h2>5. Limits</h2>
+  <p>Maximum payout is limited to the coverage amount stated in your plan and the lesser of the insured value or replacement cost of the goods.</p>
+  <p style="margin-top: 32px; font-size: 0.9rem; color: #666;">Last updated: 2025. For full terms, contact the provider directly.</p>
+  <script>
+    var m = /[?&]provider=([^&]+)/.exec(location.search);
+    var names = { safecover: 'SafeCover', shieldpro: 'ShieldPro', covermax: 'CoverMax', assurex: 'AssureX' };
+    if (m && names[m[1]]) document.getElementById('provider-name').textContent = names[m[1]] + ' – Terms & Conditions';
+  </script>
+</body>
+</html>

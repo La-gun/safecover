@@ -1,0 +1,33 @@
+<!--
+  SafeCover Universal Embed - Works on any e-commerce platform
+  
+  Integration:
+  1. Add <div id="safecover-container"></div> where the widget should appear
+  2. Load safecover-widget.js
+  3. Load your platform adapter (adapters/shopify.js, woocommerce.js, etc.)
+     OR use the inline generic config below
+-->
+
+<div id="safecover-container"></div>
+
+<script src="https://your-cdn.com/safecover-widget.js"></script>
+<script>
+  // Generic config - customize getCheckoutData() for your platform
+  SafeCover.init({
+    apiUrl: 'https://api.yourinsurance.com',
+    getCheckoutData: function () {
+      // Return checkout data from your platform's cart/checkout object
+      // Example for custom sites:
+      var total = 0;  // Get from your cart.total or similar
+      var totalEl = document.querySelector('.order-total, .cart-total, .total');
+      if (totalEl) total = parseFloat(totalEl.textContent.replace(/[^0-9.]/g, '')) || 0;
+
+      return {
+        order_id: 'ORD_' + Date.now(),
+        email: (document.querySelector('input[type="email"], #email') || {}).value || '',
+        customer_name: '',
+        items: [{ value: total }]
+      };
+    }
+  });
+</script>

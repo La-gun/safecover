@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Compare Protection Options</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    .header p { margin: 0; opacity: 0.9; font-size: 0.9rem; }
+    .checkout-frame {
+      max-width: 1100px;
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .checkout-layout { display: flex; min-height: 400px; }
+    @media (max-width: 768px) { .checkout-layout { flex-direction: column; } }
+    .checkout-main { flex: 1; padding: 24px; }
+    .checkout-sidebar {
+      width: 320px;
+      padding: 24px;
+      background: #fafafa;
+      border-left: 1px solid #eee;
+    }
+    @media (max-width: 768px) { .checkout-sidebar { width: 100%; border-left: none; border-top: 1px solid #eee; } }
+    .section-title { font-size: 16px; font-weight: 600; margin: 0 0 16px; }
+    .protection-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    @media (min-width: 700px) { .protection-options { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 900px) { .protection-options { grid-template-columns: repeat(4, 1fr); } }
+    .option-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .option-card:hover { border-color: #1a1a2e; background: #fafafa; }
+    .option-card.selected { border-color: #1a1a2e; background: #f0f4ff; }
+    .option-card.no-cover { border-style: dashed; }
+    .option-card.no-cover:hover { border-color: #999; }
+    .option-provider { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .option-plan { font-size: 12px; color: #666; margin-bottom: 8px; }
+    .option-price { font-size: 18px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+    .option-coverage { font-size: 11px; color: #666; margin-bottom: 8px; }
+    .option-summary { font-size: 10px; color: #555; line-height: 1.4; margin-bottom: 8px; }
+    .option-benefits { font-size: 11px; color: #555; line-height: 1.5; }
+    .option-benefits li { margin: 2px 0; }
+    .option-terms { font-size: 10px; margin-top: 6px; }
+    .option-terms a { color: #1a1a1a; text-decoration: underline; }
+    .cart-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #eee; }
+    .cart-item:last-child { border-bottom: none; }
+    .order-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+    .order-row.total { font-weight: 700; font-size: 16px; border-top: 1px solid #ddd; margin-top: 8px; padding-top: 12px; }
+    .pay-btn {
+      width: 100%;
+      padding: 14px;
+      background: #1a1a2e;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .pay-btn:hover { background: #16213e; }
+    .status-msg { margin-top: 12px; font-size: 13px; color: #0a7c42; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Compare Protection Options</h1>
+    <p>Choose from multiple insurers and coverage levels at checkout</p>
+  </div>
+
+  <div class="checkout-frame">
+    <div class="checkout-layout">
+      <div class="checkout-main">
+        <h2 class="section-title">Choose your protection</h2>
+        <p style="font-size: 13px; color: #666; margin: -8px 0 16px;">Select one option or skip protection</p>
+        <div id="protection-options" class="protection-options"></div>
+        <div id="status-msg" class="status-msg" style="display: none;"></div>
+      </div>
+      <div class="checkout-sidebar">
+        <h2 class="section-title">Order summary</h2>
+        <div class="cart-item"><span>Wireless Headphones</span><span>$89.00</span></div>
+        <div class="cart-item"><span>USB-C Cable Pack x2</span><span>$24.00</span></div>
+        <div class="order-row"><span>Subtotal</span><span>$113.00</span></div>
+        <div class="order-row" id="protection-row" style="display: none;">
+          <span id="protection-label">Protection</span>
+          <span id="protection-amount">$0</span>
+        </div>
+        <div class="order-row total"><span>Total</span><span id="total">$113.00</span></div>
+        <button class="pay-btn" id="pay-btn">Pay $113.00</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      var cartValue = 113;
+      var selectedOption = null;
+      var options = [];
+
+      var BASE = window.location.origin;
+      var FALLBACK_OPTIONS = [
+        { provider_id: 'safecover', provider_name: 'SafeCover', provider_logo: '🛡️', plan_id: 'basic', plan_name: 'Basic', premium: 0.23, coverage: 500, benefits: ['Loss & damage', '7 days'], summary: 'Covers loss, damage or theft during transit. Policy active from dispatch to delivery.', terms_url: BASE + '/terms.html?provider=safecover', quote_id: 'QTY_sc_b' },
+        { provider_id: 'safecover', provider_name: 'SafeCover', provider_logo: '🛡️', plan_id: 'standard', plan_name: 'Standard', premium: 0.34, coverage: 1000, benefits: ['Loss, damage, theft', '14 days'], summary: 'Extended transit protection including theft. 14-day coverage.', terms_url: BASE + '/terms.html?provider=safecover', quote_id: 'QTY_sc_s' },
+        { provider_id: 'safecover', provider_name: 'SafeCover', provider_logo: '🛡️', plan_id: 'premium', plan_name: 'Premium', premium: 0.57, coverage: 2500, benefits: ['Full coverage', '30 days'], summary: 'Comprehensive coverage for 30 days. 24/7 support and express payout.', terms_url: BASE + '/terms.html?provider=safecover', quote_id: 'QTY_sc_p' },
+        { provider_id: 'shieldpro', provider_name: 'ShieldPro', provider_logo: '🔒', plan_id: 'essential', plan_name: 'Essential', premium: 0.28, coverage: 750, benefits: ['Transit protection', '10 days'], summary: 'Goods-in-transit protection for loss or damage. 10-day coverage.', terms_url: BASE + '/terms.html?provider=shieldpro', quote_id: 'QTY_sp_e' },
+        { provider_id: 'shieldpro', provider_name: 'ShieldPro', provider_logo: '🔒', plan_id: 'plus', plan_name: 'Plus', premium: 0.45, coverage: 1500, benefits: ['Extended coverage', '21 days'], summary: 'Extended coverage with dedicated claims support.', terms_url: BASE + '/terms.html?provider=shieldpro', quote_id: 'QTY_sp_pl' },
+        { provider_id: 'shieldpro', provider_name: 'ShieldPro', provider_logo: '🔒', plan_id: 'max', plan_name: 'Max', premium: 0.68, coverage: 5000, benefits: ['Unlimited claims', '60 days'], summary: 'Maximum protection with 60-day coverage.', terms_url: BASE + '/terms.html?provider=shieldpro', quote_id: 'QTY_sp_m' },
+        { provider_id: 'covermax', provider_name: 'CoverMax', provider_logo: '⚡', plan_id: 'starter', plan_name: 'Starter', premium: 0.17, coverage: 300, benefits: ['Basic protection', '5 days'], summary: 'Essential transit cover for loss or damage. 5-day policy.', terms_url: BASE + '/terms.html?provider=covermax', quote_id: 'QTY_cm_s' },
+        { provider_id: 'covermax', provider_name: 'CoverMax', provider_logo: '⚡', plan_id: 'pro', plan_name: 'Pro', premium: 0.34, coverage: 1000, benefits: ['Standard coverage', '14 days'], summary: 'Standard transit insurance with same-day claims.', terms_url: BASE + '/terms.html?provider=covermax', quote_id: 'QTY_cm_p' },
+        { provider_id: 'covermax', provider_name: 'CoverMax', provider_logo: '⚡', plan_id: 'elite', plan_name: 'Elite', premium: 0.51, coverage: 3000, benefits: ['Premium coverage', '30 days'], summary: 'Premium protection with instant payout. 30-day coverage.', terms_url: BASE + '/terms.html?provider=covermax', quote_id: 'QTY_cm_e' },
+        { provider_id: 'assurex', provider_name: 'AssureX', provider_logo: '✓', plan_id: 'lite', plan_name: 'Lite', premium: 0.23, coverage: 400, benefits: ['Essential cover', '7 days'], summary: 'Basic transit protection. Simple claims, 7-day coverage.', terms_url: BASE + '/terms.html?provider=assurex', quote_id: 'QTY_ax_l' },
+        { provider_id: 'assurex', provider_name: 'AssureX', provider_logo: '✓', plan_id: 'core', plan_name: 'Core', premium: 0.40, coverage: 1200, benefits: ['Full protection', '14 days'], summary: 'Full transit protection with easy online claims.', terms_url: BASE + '/terms.html?provider=assurex', quote_id: 'QTY_ax_c' },
+        { provider_id: 'assurex', provider_name: 'AssureX', provider_logo: '✓', plan_id: 'ultimate', plan_name: 'Ultimate', premium: 0.57, coverage: 4000, benefits: ['Maximum coverage', '45 days'], summary: 'Maximum coverage with concierge support. 45-day protection.', terms_url: BASE + '/terms.html?provider=assurex', quote_id: 'QTY_ax_u' },
+      ];
+
+      function renderOptions() {
+        fetch(API + '/api/quote/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: [{ value: 89 }, { value: 24 }] })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            options = (data.options && data.options.length) ? data.options : FALLBACK_OPTIONS;
+            var html = '';
+
+            html += '<div class="option-card no-cover" data-id="none">';
+            html += '<div class="option-provider">No protection</div>';
+            html += '<div class="option-plan">Skip insurance</div>';
+            html += '<div class="option-price">$0.00</div>';
+            html += '<div class="option-coverage">You won\'t be covered for loss or damage</div>';
+            html += '</div>';
+
+            options.forEach(function (opt) {
+              var benefits = (opt.benefits || []).map(function (b) { return '<li>' + b + '</li>'; }).join('');
+              var termsUrl = opt.terms_url || '/terms.html';
+              if (termsUrl.indexOf('http') !== 0) termsUrl = (window.location.origin || '') + termsUrl;
+              html += '<div class="option-card" data-id="' + opt.provider_id + '_' + opt.plan_id + '" data-provider="' + opt.provider_id + '" data-plan="' + opt.plan_id + '" data-quote="' + opt.quote_id + '" data-premium="' + opt.premium + '" data-label="' + opt.provider_name + ' ' + opt.plan_name + '">';
+              html += '<div class="option-provider">' + opt.provider_logo + ' ' + opt.provider_name + '</div>';
+              html += '<div class="option-plan">' + opt.plan_name + '</div>';
+              html += '<div class="option-price">$' + opt.premium.toFixed(2) + '</div>';
+              html += '<div class="option-coverage">Up to $' + opt.coverage.toLocaleString() + '</div>';
+              if (opt.summary) html += '<div class="option-summary">' + opt.summary + '</div>';
+              html += '<ul class="option-benefits">' + benefits + '</ul>';
+              html += '<div class="option-terms"><a href="' + termsUrl + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Terms & Conditions</a></div></div>';
+            });
+
+            document.getElementById('protection-options').innerHTML = html;
+
+            document.querySelector('.option-card.no-cover').classList.add('selected');
+
+            document.querySelectorAll('.option-card').forEach(function (card) {
+              card.onclick = function () {
+                document.querySelectorAll('.option-card').forEach(function (c) { c.classList.remove('selected'); });
+                card.classList.add('selected');
+
+                if (card.dataset.id === 'none') {
+                  selectedOption = null;
+                  updateSummary(null);
+                  return;
+                }
+
+                selectedOption = {
+                  provider_id: card.dataset.provider,
+                  plan_id: card.dataset.plan,
+                  quote_id: card.dataset.quote,
+                  premium: parseFloat(card.dataset.premium),
+                  label: card.dataset.label
+                };
+                updateSummary(selectedOption);
+              };
+            });
+          })
+          .catch(function () {
+            options = FALLBACK_OPTIONS;
+            var html = '';
+            html += '<div class="option-card no-cover" data-id="none"><div class="option-provider">No protection</div><div class="option-plan">Skip</div><div class="option-price">$0.00</div><div class="option-coverage">Not covered</div></div>';
+            options.forEach(function (opt) {
+              var benefits = (opt.benefits || []).map(function (b) { return '<li>' + b + '</li>'; }).join('');
+              var termsUrl = opt.terms_url || '/terms.html';
+              if (termsUrl.indexOf('http') !== 0) termsUrl = (window.location.origin || '') + termsUrl;
+              html += '<div class="option-card" data-id="' + opt.provider_id + '_' + opt.plan_id + '" data-provider="' + opt.provider_id + '" data-plan="' + opt.plan_id + '" data-quote="' + opt.quote_id + '" data-premium="' + opt.premium + '" data-label="' + opt.provider_name + ' ' + opt.plan_name + '">';
+              html += '<div class="option-provider">' + opt.provider_logo + ' ' + opt.provider_name + '</div><div class="option-plan">' + opt.plan_name + '</div>';
+              html += '<div class="option-price">$' + opt.premium.toFixed(2) + '</div><div class="option-coverage">Up to $' + opt.coverage.toLocaleString() + '</div>';
+              if (opt.summary) html += '<div class="option-summary">' + opt.summary + '</div>';
+              html += '<ul class="option-benefits">' + benefits + '</ul><div class="option-terms"><a href="' + termsUrl + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Terms & Conditions</a></div></div>';
+            });
+            document.getElementById('protection-options').innerHTML = html;
+            document.querySelector('.option-card.no-cover').classList.add('selected');
+            document.querySelectorAll('.option-card').forEach(function (card) {
+              card.onclick = function () {
+                document.querySelectorAll('.option-card').forEach(function (c) { c.classList.remove('selected'); });
+                card.classList.add('selected');
+                if (card.dataset.id === 'none') { selectedOption = null; updateSummary(null); return; }
+                selectedOption = { provider_id: card.dataset.provider, plan_id: card.dataset.plan, quote_id: card.dataset.quote, premium: parseFloat(card.dataset.premium), label: card.dataset.label };
+                updateSummary(selectedOption);
+              };
+            });
+          });
+      }
+
+      function updateSummary(opt) {
+        var protectionRow = document.getElementById('protection-row');
+        var totalEl = document.getElementById('total');
+        var payBtn = document.getElementById('pay-btn');
+
+        if (!opt) {
+          protectionRow.style.display = 'none';
+          totalEl.textContent = '$' + cartValue.toFixed(2);
+          payBtn.textContent = 'Pay $' + cartValue.toFixed(2);
+          return;
+        }
+
+        document.getElementById('protection-label').textContent = opt.label;
+        document.getElementById('protection-amount').textContent = '$' + opt.premium.toFixed(2);
+        protectionRow.style.display = 'flex';
+        var newTotal = cartValue + opt.premium;
+        totalEl.textContent = '$' + newTotal.toFixed(2);
+        payBtn.textContent = 'Pay $' + newTotal.toFixed(2);
+      }
+
+      document.getElementById('pay-btn').onclick = function () {
+        if (!selectedOption) {
+          alert('Order placed without protection.');
+          return;
+        }
+
+        fetch(API + '/api/policy/bind', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quote_id: selectedOption.quote_id,
+            transaction_id: 'ORD_' + Date.now(),
+            customer: { email: 'customer@example.com', name: 'Demo User' },
+            premium_paid: selectedOption.premium,
+            provider_id: selectedOption.provider_id,
+            plan_id: selectedOption.plan_id
+          })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            var msg = document.getElementById('status-msg');
+            msg.textContent = "You're protected! Policy " + res.policy_id + " issued with " + (res.provider_name || selectedOption.label) + ".";
+            msg.style.display = 'block';
+          })
+          .catch(function () {
+            var msg = document.getElementById('status-msg');
+            msg.textContent = 'Protection added with ' + selectedOption.label + '.';
+            msg.style.display = 'block';
+            msg.style.color = '#0a7c42';
+          });
+      };
+
+      renderOptions();
+    })();
+  </script>
+</body>
+</html>

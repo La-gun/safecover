@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover Insurance Widget - Demo</title>
+</head>
+<body>
+  <h1>Checkout Demo</h1>
+  <p>Simulated cart total: $100.00</p>
+
+  <div id="safecover-container"></div>
+
+  <script src="safecover-widget.js"></script>
+  <script>
+    SafeCover.init({
+      apiUrl: '', // same origin when served from API
+      containerId: 'safecover-container',
+      getCheckoutData: function () {
+        return {
+          order_id: 'DEMO_' + Date.now(),
+          email: 'customer@example.com',
+          customer_name: 'Jane Doe',
+          items: [{ value: 100 }]
+        };
+      }
+    });
+  </script>
+</body>
+</html>
