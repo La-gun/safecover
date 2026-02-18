@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Quote → Bind → Policy Flow</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+    }
+    .header h1 { margin: 0 0 6px; font-size: 1.5rem; }
+    .header p { margin: 0; opacity: 0.9; font-size: 0.9rem; }
+    .stepper {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .step {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      background: #e8e8e8;
+      color: #666;
+    }
+    .step.active { background: #1a1a2e; color: #fff; }
+    .step.done { background: #22c55e; color: #fff; }
+    .container { max-width: 720px; margin: 0 auto; padding: 24px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .card h2 { margin: 0 0 16px; font-size: 1.1rem; }
+    .quotes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .quote-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quote-card:hover { border-color: #1a1a2e; background: #fafafa; }
+    .quote-card.selected { border-color: #1a1a2e; background: #f0f4ff; }
+    .quote-provider { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .quote-plan { font-size: 12px; color: #666; margin-bottom: 6px; }
+    .quote-price { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+    .quote-coverage { font-size: 11px; color: #666; margin-top: 4px; }
+    .btn {
+      padding: 12px 24px;
+      background: #1a1a2e;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn:hover { background: #16213e; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: #666; }
+    .policy-doc {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 32px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .policy-doc h1 { font-size: 1.5rem; margin: 0 0 24px; border-bottom: 2px solid #1a1a2e; padding-bottom: 12px; }
+    .policy-doc .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .policy-doc .row strong { min-width: 140px; }
+    .policy-doc .footer { margin-top: 24px; font-size: 12px; color: #666; }
+    .status-msg { margin-top: 12px; padding: 12px; border-radius: 8px; font-size: 14px; }
+    .status-msg.success { background: #dcfce7; color: #166534; }
+    .status-msg.error { background: #fee2e2; color: #991b1b; }
+    .status-msg.info { background: #dbeafe; color: #1e40af; }
+    @media print {
+      .header, .stepper, .btn, #card-quotes, #card-select, #card-bind { display: none !important; }
+      .card { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SafeCover – Quote → Bind → Policy Flow</h1>
+    <p>See quotes, select one, accept, and receive your policy document</p>
+  </div>
+  <div class="stepper">
+    <span class="step active" id="step1">1. Quotes</span>
+    <span class="step" id="step2">2. Select</span>
+    <span class="step" id="step3">3. Bind</span>
+    <span class="step" id="step4">4. Policy</span>
+  </div>
+  <div class="container">
+    <div class="card" id="card-quotes">
+      <h2>Step 1: Quotes generated</h2>
+      <p style="font-size: 14px; color: #666; margin-bottom: 16px;">Cart value: $113 (Wireless Headphones $89 + Cable Pack $24)</p>
+      <button class="btn" id="btn-fetch-quotes">Fetch quotes</button>
+      <div id="quotes-container" style="margin-top: 20px; display: none;"></div>
+    </div>
+    <div class="card" id="card-select" style="display: none;">
+      <h2>Step 2: Select & accept</h2>
+      <p style="font-size: 14px; color: #666; margin-bottom: 16px;">Choose a protection plan and click Accept to bind.</p>
+      <div id="selected-display" style="margin-bottom: 16px;"></div>
+      <button class="btn" id="btn-accept" disabled>Accept & bind</button>
+    </div>
+    <div class="card" id="card-bind" style="display: none;">
+      <h2>Step 3: Bind</h2>
+      <div id="bind-status"></div>
+    </div>
+    <div class="card" id="card-policy" style="display: none;">
+      <h2>Step 4: Policy document</h2>
+      <div id="policy-doc" class="policy-doc"></div>
+      <button class="btn btn-secondary" id="btn-print" style="margin-top: 16px;">Print / Save PDF</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      var cartValue = 113;
+      var quotes = [];
+      var selected = null;
+
+      function setStep(n) {
+        [1, 2, 3, 4].forEach(function (i) {
+          var el = document.getElementById('step' + i);
+          el.className = 'step';
+          if (i < n) el.classList.add('done');
+          else if (i === n) el.classList.add('active');
+        });
+      }
+
+      document.getElementById('btn-fetch-quotes').onclick = function () {
+        var btn = document.getElementById('btn-fetch-quotes');
+        btn.disabled = true;
+        btn.textContent = 'Loading…';
+        fetch(API + '/api/quote/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: [{ value: 89 }, { value: 24 }] })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            quotes = data.options || [];
+            var container = document.getElementById('quotes-container');
+            container.style.display = 'block';
+            container.innerHTML = '<div class="quotes-grid">' + quotes.map(function (q) {
+              return '<div class="quote-card" data-idx="' + quotes.indexOf(q) + '">' +
+                '<div class="quote-provider">' + (q.provider_logo || '') + ' ' + q.provider_name + '</div>' +
+                '<div class="quote-plan">' + q.plan_name + '</div>' +
+                '<div class="quote-price">$' + (q.premium || 0).toFixed(2) + '</div>' +
+                '<div class="quote-coverage">Up to $' + (q.coverage || 0).toLocaleString() + '</div></div>';
+            }).join('') + '</div>';
+            document.querySelectorAll('.quote-card').forEach(function (card) {
+              card.onclick = function () {
+                document.querySelectorAll('.quote-card').forEach(function (c) { c.classList.remove('selected'); });
+                card.classList.add('selected');
+                selected = quotes[parseInt(card.dataset.idx, 10)];
+                document.getElementById('card-select').style.display = 'block';
+                document.getElementById('selected-display').innerHTML = '<strong>Selected:</strong> ' + selected.provider_name + ' ' + selected.plan_name + ' — $' + selected.premium.toFixed(2);
+                document.getElementById('btn-accept').disabled = false;
+                setStep(2);
+              };
+            });
+            setStep(1);
+            btn.textContent = 'Quotes loaded';
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Fetch quotes';
+            alert('Failed to fetch quotes');
+          });
+      };
+
+      document.getElementById('btn-accept').onclick = function () {
+        if (!selected) return;
+        var btn = document.getElementById('btn-accept');
+        btn.disabled = true;
+        btn.textContent = 'Binding…';
+        document.getElementById('card-bind').style.display = 'block';
+        document.getElementById('bind-status').innerHTML = '<div class="status-msg info">Binding policy…</div>';
+        setStep(3);
+
+        fetch(API + '/api/policy/bind', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quote_id: selected.quote_id,
+            transaction_id: 'ORD_' + Date.now(),
+            customer: { email: 'customer@example.com', name: 'Demo User' },
+            premium_paid: selected.premium,
+            provider_id: selected.provider_id,
+            plan_id: selected.plan_id
+          })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            document.getElementById('bind-status').innerHTML =
+              '<div class="status-msg success">Bound! Policy ID: ' + res.policy_id + '</div>';
+            setStep(4);
+            document.getElementById('card-policy').style.display = 'block';
+            return fetch(API + '/api/policy/' + res.policy_id);
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (policy) {
+            var doc = document.getElementById('policy-doc');
+            doc.innerHTML =
+              '<h1>Micro-Insurance Policy</h1>' +
+              '<div class="row"><strong>Policy ID</strong><span>' + (policy.policy_id || '—') + '</span></div>' +
+              '<div class="row"><strong>Provider</strong><span>' + (policy.provider_name || '—') + '</span></div>' +
+              '<div class="row"><strong>Plan</strong><span>' + (policy.plan_id || '—') + '</span></div>' +
+              '<div class="row"><strong>Premium</strong><span>$' + (policy.premium || 0).toFixed(2) + '</span></div>' +
+              '<div class="row"><strong>Coverage type</strong><span>' + (policy.coverage_details?.type || '—') + '</span></div>' +
+              '<div class="row"><strong>Max value</strong><span>$' + (policy.coverage_details?.max_value || 0).toLocaleString() + '</span></div>' +
+              '<div class="row"><strong>Duration</strong><span>' + (policy.coverage_details?.duration || '—') + '</span></div>' +
+              '<div class="row"><strong>Transaction ID</strong><span>' + (policy.transaction_id || '—') + '</span></div>' +
+              '<div class="row"><strong>Customer</strong><span>' + (policy.customer?.email || '—') + '</span></div>' +
+              '<div class="row"><strong>Recorded</strong><span>' + (policy.recorded_at || '—') + '</span></div>' +
+              (policy.tx_hash ? '<div class="row"><strong>Blockchain TX</strong><span>' + policy.tx_hash + '</span></div>' : '') +
+              '<div class="footer">This policy is secured on blockchain. SafeCover embedded micro-insurance platform.</div>';
+          })
+          .catch(function () {
+            document.getElementById('bind-status').innerHTML =
+              '<div class="status-msg success">Bound (policy doc unavailable)</div>';
+            document.getElementById('card-policy').style.display = 'block';
+            document.getElementById('policy-doc').innerHTML = '<p>Policy was bound successfully. Document fetch failed.</p>';
+          });
+      };
+
+      document.getElementById('btn-print').onclick = function () {
+        window.print();
+      };
+    })();
+  </script>
+</body>
+</html>

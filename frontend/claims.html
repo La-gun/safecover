@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Claims</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 24px; text-align: center; }
+    .header h1 { margin: 0 0 8px; }
+    .container { max-width: 720px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card h2 { margin: 0 0 16px; font-size: 1.1rem; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-group input, .form-group textarea { width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+    .form-group textarea { min-height: 80px; }
+    .btn { padding: 10px 20px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #16213e; }
+    .btn-secondary { background: #666; }
+    .claim-list { list-style: none; padding: 0; margin: 0; }
+    .claim-item { padding: 16px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .claim-item:last-child { border-bottom: none; }
+    .status { font-size: 12px; padding: 4px 8px; border-radius: 4px; font-weight: 500; }
+    .status.submitted { background: #dbeafe; color: #1e40af; }
+    .status.approved { background: #dcfce7; color: #166534; }
+    .status.paid { background: #dcfce7; color: #166534; }
+    .status.rejected { background: #fee2e2; color: #991b1b; }
+    .status.triggered { background: #fef3c7; color: #92400e; }
+    .flow-steps { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+    .flow-step { padding: 8px 12px; background: #f0f0f0; border-radius: 6px; font-size: 13px; }
+    .flow-step.done { background: #dcfce7; }
+    .flow-step.current { background: #1a1a2e; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Claims</h1>
+    <p>Submit, track, and manage your insurance claims</p>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>1. Find your policy</h2>
+      <p style="font-size: 14px; color: #666; margin-bottom: 16px;">Enter your email to load policies. Then submit a claim for a policy.</p>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email" value="customer@example.com" placeholder="your@email.com">
+      </div>
+      <button class="btn" id="btn-load-policies">Load my policies</button>
+    </div>
+    <div class="card" id="policies-card" style="display:none">
+      <h2>Your policies</h2>
+      <ul class="claim-list" id="policies-list"></ul>
+    </div>
+    <div class="card" id="submit-claim-card" style="display:none">
+      <h2>2. Submit claim</h2>
+      <div class="form-group">
+        <label>Policy ID</label>
+        <input type="text" id="claim-policy-id" readonly>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="claim-desc" placeholder="Describe the loss or damage..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Amount claimed ($)</label>
+        <input type="number" id="claim-amount" placeholder="0.00" step="0.01">
+      </div>
+      <button class="btn" id="btn-submit-claim">Submit claim</button>
+    </div>
+    <div class="card" id="claims-list-card" style="display:none">
+      <h2>3. Your claims</h2>
+      <p style="font-size: 13px; color: #666; margin-bottom: 12px;">Flow: Submit → Review → Approved → Paid</p>
+      <div class="flow-steps">
+        <span class="flow-step">Submit</span>
+        <span class="flow-step">Review</span>
+        <span class="flow-step">Approved</span>
+        <span class="flow-step">Paid</span>
+      </div>
+      <ul class="claim-list" id="claims-list"></ul>
+    </div>
+    <div class="card" id="claim-detail-card" style="display:none">
+      <h2>Claim detail</h2>
+      <div id="claim-detail-body"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      var selectedPolicyId = null;
+
+      document.getElementById('btn-load-policies').onclick = function () {
+        var email = document.getElementById('email').value;
+        if (!email) { alert('Enter email'); return; }
+        fetch(API + '/api/policies?email=' + encodeURIComponent(email), { headers: { 'X-API-Key': 'demo' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var list = document.getElementById('policies-list');
+            list.innerHTML = '';
+            if (!data.policies || data.policies.length === 0) {
+              list.innerHTML = '<li class="claim-item">No policies found. Complete a checkout first.</li>';
+            } else {
+              data.policies.forEach(function (p) {
+                var li = document.createElement('li');
+                li.className = 'claim-item';
+                li.innerHTML = '<div><strong>' + p.policy_id + '</strong> – ' + p.provider_name + ' – $' + (p.premium || 0).toFixed(2) + '</div><button class="btn btn-secondary" data-policy="' + p.policy_id + '">Claim</button>';
+                li.querySelector('button').onclick = function () {
+                  selectedPolicyId = p.policy_id;
+                  document.getElementById('claim-policy-id').value = p.policy_id;
+                  document.getElementById('submit-claim-card').style.display = 'block';
+                  document.getElementById('claims-list-card').style.display = 'block';
+                  loadClaims(email);
+                };
+                list.appendChild(li);
+              });
+            }
+            document.getElementById('policies-card').style.display = 'block';
+          });
+      };
+
+      document.getElementById('btn-submit-claim').onclick = function () {
+        var policyId = document.getElementById('claim-policy-id').value;
+        var desc = document.getElementById('claim-desc').value;
+        var amount = document.getElementById('claim-amount').value;
+        if (!policyId) { alert('Select a policy first'); return; }
+        fetch(API + '/api/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+          body: JSON.stringify({ policy_id: policyId, description: desc, amount: amount || null })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            alert('Claim ' + res.claim_id + ' submitted.');
+            document.getElementById('claim-desc').value = '';
+            document.getElementById('claim-amount').value = '';
+            loadClaims(document.getElementById('email').value);
+          })
+          .catch(function () { alert('Failed to submit claim'); });
+      };
+
+      function loadClaims(email) {
+        if (!email) return;
+        fetch(API + '/api/claims?email=' + encodeURIComponent(email), { headers: { 'X-API-Key': 'demo' } })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var list = document.getElementById('claims-list');
+            list.innerHTML = '';
+            (data.claims || []).forEach(function (c) {
+              var li = document.createElement('li');
+              li.className = 'claim-item';
+              li.innerHTML = '<div><strong>' + c.claim_id + '</strong> – ' + c.policy_id + '<br><small>' + (c.description || '-') + '</small></div><span class="status ' + c.status + '">' + c.status + '</span>';
+              li.style.cursor = 'pointer';
+              li.onclick = function () {
+                fetch(API + '/api/claim/' + c.claim_id, { headers: { 'X-API-Key': 'demo' } })
+                  .then(function (r) { return r.json(); })
+                  .then(function (detail) {
+                    var body = document.getElementById('claim-detail-body');
+                    body.innerHTML = '<p><strong>Claim ID:</strong> ' + detail.claim_id + '</p><p><strong>Policy:</strong> ' + detail.policy_id + '</p><p><strong>Status:</strong> <span class="status ' + detail.status + '">' + detail.status + '</span></p><p><strong>Description:</strong> ' + (detail.description || '-') + '</p><p><strong>Amount:</strong> $' + (detail.amount || 0) + '</p><p><strong>Payout:</strong> $' + (detail.payout_amount || 0) + '</p><p><strong>Submitted:</strong> ' + (detail.created_at || '-') + '</p>';
+                    document.getElementById('claim-detail-card').style.display = 'block';
+                  });
+              };
+              list.appendChild(li);
+            });
+          });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Whole Cart vs Selected Items</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 { margin: 0 0 8px; }
+    .header p { margin: 0; opacity: 0.9; font-size: 0.95rem; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      justify-content: center;
+    }
+    .mode-tabs button {
+      padding: 12px 24px;
+      border: 2px solid #1a1a2e;
+      background: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mode-tabs button.active { background: #1a1a2e; color: #fff; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .card h2 { margin: 0 0 8px; font-size: 1.1rem; }
+    .card .subtitle { font-size: 13px; color: #666; margin-bottom: 16px; }
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: #1a1a2e; }
+    .cart-item .name { flex: 1; font-weight: 500; }
+    .cart-item .price { font-weight: 600; }
+    .cart-item.excluded { opacity: 0.5; }
+    .quote-box {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .quote-box .label { font-size: 12px; color: #666; }
+    .quote-box .premium { font-size: 24px; font-weight: 700; color: #1a1a2e; }
+    .quote-box .covered { font-size: 13px; color: #0a7c42; margin-top: 4px; }
+    .comparison { margin-top: 24px; padding: 20px; background: #e8f4fd; border-radius: 8px; }
+    .comparison h3 { margin: 0 0 12px; font-size: 1rem; }
+    .comparison table { width: 100%; font-size: 14px; }
+    .comparison td { padding: 8px 0; }
+    .comparison td:last-child { text-align: right; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Coverage Modes: Whole Cart vs Selected Items</h1>
+    <p>See how protection works when you cover everything vs. only high-value items</p>
+  </div>
+  <div class="container">
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="compare">Compare both</button>
+      <button class="mode-tab" data-mode="whole">Whole cart only</button>
+      <button class="mode-tab" data-mode="select">Selected items only</button>
+    </div>
+
+    <div class="grid-2" id="demo-grid">
+      <div class="card" id="card-whole">
+        <h2>Whole cart coverage</h2>
+        <p class="subtitle">One policy covers your entire order. Premium based on total cart value.</p>
+        <div id="cart-whole"></div>
+        <div class="quote-box" id="quote-whole">
+          <div class="label">Premium (all items)</div>
+          <div class="premium" id="premium-whole">—</div>
+          <div class="covered" id="covered-whole">—</div>
+        </div>
+      </div>
+      <div class="card" id="card-select">
+        <h2>Selected items coverage</h2>
+        <p class="subtitle">Choose which items to protect. Premium based on selected value only.</p>
+        <div id="cart-select"></div>
+        <div class="quote-box" id="quote-select">
+          <div class="label">Premium (selected items)</div>
+          <div class="premium" id="premium-select">—</div>
+          <div class="covered" id="covered-select">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card comparison">
+      <h3>Comparison</h3>
+      <table>
+        <tr><td>Whole cart total</td><td id="cmp-whole-total">—</td></tr>
+        <tr><td>Whole cart premium</td><td id="cmp-whole-prem">—</td></tr>
+        <tr><td>Selected value</td><td id="cmp-select-total">—</td></tr>
+        <tr><td>Selected premium</td><td id="cmp-select-prem">—</td></tr>
+        <tr><td><strong>You save</strong></td><td id="cmp-save">—</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      var cart = [
+        { id: '1', name: 'Wireless Earbuds', price: 89 },
+        { id: '2', name: 'USB-C Cable Pack', price: 12 },
+        { id: '3', name: 'Laptop Stand', price: 45 },
+        { id: '4', name: 'Gaming Laptop', price: 899 },
+      ];
+      var selectedIds = new Set(['1', '3', '4']);
+
+      function renderCartWhole() {
+        var html = cart.map(function (i) {
+          return '<div class="cart-item"><span class="name">' + i.name + '</span><span class="price">$' + i.price.toFixed(2) + '</span></div>';
+        }).join('');
+        document.getElementById('cart-whole').innerHTML = html;
+      }
+
+      function renderCartSelect() {
+        var html = cart.map(function (i) {
+          var checked = selectedIds.has(i.id);
+          return '<div class="cart-item' + (checked ? '' : ' excluded') + '">' +
+            '<input type="checkbox" id="chk-' + i.id + '" ' + (checked ? 'checked' : '') + ' data-id="' + i.id + '">' +
+            '<span class="name">' + i.name + '</span><span class="price">$' + i.price.toFixed(2) + '</span></div>';
+        }).join('');
+        document.getElementById('cart-select').innerHTML = html;
+        document.querySelectorAll('#cart-select input[type="checkbox"]').forEach(function (cb) {
+          cb.onchange = function () {
+            if (cb.checked) selectedIds.add(cb.dataset.id);
+            else selectedIds.delete(cb.dataset.id);
+            cb.closest('.cart-item').classList.toggle('excluded', !cb.checked);
+            fetchQuotes();
+          };
+        });
+      }
+
+      var lastWholePrem = 0;
+      var lastSelectPrem = 0;
+
+      function fetchQuotes() {
+        var wholeItems = cart.map(function (i) { return { value: i.price }; });
+        var selectItems = cart.filter(function (i) { return selectedIds.has(i.id); }).map(function (i) { return { value: i.price }; });
+
+        var wholeValue = wholeItems.reduce(function (s, i) { return s + i.value; }, 0);
+        var selectValue = selectItems.reduce(function (s, i) { return s + i.value; }, 0);
+
+        fetch(API + '/api/quote/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: wholeItems, scenario: 'retail' })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var best = (data.options || []).reduce(function (a, b) { return (a.premium < b.premium) ? a : b; }, { premium: 0 });
+            lastWholePrem = best.premium || 0;
+            document.getElementById('premium-whole').textContent = '$' + lastWholePrem.toFixed(2);
+            document.getElementById('covered-whole').textContent = 'Covers up to $' + (best.coverage || wholeValue).toLocaleString();
+            document.getElementById('cmp-whole-total').textContent = '$' + wholeValue.toFixed(2);
+            document.getElementById('cmp-whole-prem').textContent = '$' + lastWholePrem.toFixed(2);
+            updateComparison();
+          })
+          .catch(function () {
+            lastWholePrem = 0.50;
+            document.getElementById('premium-whole').textContent = '$0.50';
+            document.getElementById('covered-whole').textContent = 'Covers entire cart';
+          });
+
+        if (selectItems.length > 0) {
+          fetch(API + '/api/quote/compare', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: selectItems, scenario: 'retail' })
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              var best = (data.options || []).reduce(function (a, b) { return (a.premium < b.premium) ? a : b; }, { premium: 0 });
+              lastSelectPrem = best.premium || 0;
+              document.getElementById('premium-select').textContent = '$' + lastSelectPrem.toFixed(2);
+              document.getElementById('covered-select').textContent = 'Covers $' + selectValue.toFixed(2) + ' (selected items)';
+              document.getElementById('cmp-select-total').textContent = '$' + selectValue.toFixed(2);
+              document.getElementById('cmp-select-prem').textContent = '$' + lastSelectPrem.toFixed(2);
+              updateComparison();
+            })
+            .catch(function () {
+              lastSelectPrem = 0.34;
+              document.getElementById('premium-select').textContent = '$0.34';
+              document.getElementById('covered-select').textContent = 'Covers selected items';
+            });
+        } else {
+          lastSelectPrem = 0;
+          document.getElementById('premium-select').textContent = '$0.00';
+          document.getElementById('covered-select').textContent = 'Select items to protect';
+          document.getElementById('cmp-select-total').textContent = '$0.00';
+          document.getElementById('cmp-select-prem').textContent = '$0.00';
+          document.getElementById('cmp-save').textContent = '—';
+        }
+      }
+
+      function updateComparison() {
+        var save = lastWholePrem - lastSelectPrem;
+        document.getElementById('cmp-save').textContent = save > 0 ? '$' + save.toFixed(2) : '—';
+      }
+
+      document.querySelectorAll('.mode-tab').forEach(function (btn) {
+        btn.onclick = function () {
+          document.querySelectorAll('.mode-tab').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          var mode = btn.dataset.mode;
+          document.getElementById('card-whole').style.display = (mode === 'select') ? 'none' : 'block';
+          document.getElementById('card-select').style.display = (mode === 'whole') ? 'none' : 'block';
+          document.querySelector('.comparison').style.display = (mode === 'compare') ? 'block' : 'none';
+        };
+      });
+
+      renderCartWhole();
+      renderCartSelect();
+      fetchQuotes();
+    })();
+  </script>
+</body>
+</html>

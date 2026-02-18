@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Partner Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 24px; text-align: center; }
+    .header h1 { margin: 0 0 8px; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card h2 { margin: 0 0 16px; font-size: 1.1rem; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-group input { width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+    .btn { padding: 10px 20px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #16213e; }
+    .api-key { font-family: monospace; background: #f0f0f0; padding: 12px; border-radius: 6px; margin: 12px 0; word-break: break-all; }
+    .sandbox-badge { display: inline-block; padding: 4px 8px; background: #fef3c7; color: #92400e; border-radius: 4px; font-size: 12px; margin-left: 8px; }
+    .code-block { background: #1e1e24; color: #e4e4e7; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 12px; overflow-x: auto; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button { padding: 8px 16px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; }
+    .tabs button.active { background: #1a1a2e; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Partner Dashboard</h1>
+    <p>Create API keys, test in sandbox, integrate SafeCover</p>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>1. Create API key</h2>
+      <p style="font-size: 14px; color: #666; margin-bottom: 16px;">Get a sandbox API key to test the API. Sandbox mode uses test data.</p>
+      <div class="form-group">
+        <label>Partner name</label>
+        <input type="text" id="partner-name" value="My Store" placeholder="Your store or app name">
+      </div>
+      <div class="form-group">
+        <label>Jurisdiction</label>
+        <input type="text" id="partner-jurisdiction" value="US" placeholder="US, UK, EU, etc.">
+      </div>
+      <button class="btn" id="btn-create-key">Create sandbox API key</button>
+      <div id="key-result" style="display:none; margin-top: 16px;">
+        <p><strong>Your API key (save it – shown once):</strong></p>
+        <div class="api-key" id="api-key-display"></div>
+        <p style="font-size: 12px; color: #666;">Use in headers: <code>X-API-Key: your_key</code> or <code>Authorization: Bearer your_key</code></p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>2. Sandbox & API docs</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="quote">Quote</button>
+        <button class="tab" data-tab="bind">Bind</button>
+      </div>
+      <div id="tab-quote" class="tab-content">
+        <p><strong>POST /api/quote/compare</strong></p>
+        <pre class="code-block">curl -X POST {{API}}/api/quote/compare \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"items":[{"value":100},{"value":50}],"scenario":"retail","jurisdiction":"US"}'</pre>
+      </div>
+      <div id="tab-bind" class="tab-content" style="display:none">
+        <p><strong>POST /api/policy/bind</strong></p>
+        <pre class="code-block">curl -X POST {{API}}/api/policy/bind \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"quote_id":"QTY_xxx","transaction_id":"ORD_123","customer":{"email":"a@b.com","name":"John"},"premium_paid":0.34,"provider_id":"safecover","plan_id":"standard"}'</pre>
+      </div>
+    </div>
+    <div class="card">
+      <h2>3. Test your key</h2>
+      <div class="form-group">
+        <label>API key</label>
+        <input type="text" id="test-key" placeholder="Paste your API key">
+      </div>
+      <button class="btn" id="btn-test">Test quote</button>
+      <div id="test-result" style="margin-top: 12px; font-size: 14px;"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var API = window.location.origin;
+      document.querySelectorAll('.tab').forEach(function (btn) {
+        btn.onclick = function () {
+          document.querySelectorAll('.tab').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          document.getElementById('tab-quote').style.display = btn.dataset.tab === 'quote' ? 'block' : 'none';
+          document.getElementById('tab-bind').style.display = btn.dataset.tab === 'bind' ? 'block' : 'none';
+        };
+      });
+
+      document.getElementById('btn-create-key').onclick = function () {
+        var name = document.getElementById('partner-name').value || 'Partner';
+        var jurisdiction = document.getElementById('partner-jurisdiction').value || 'US';
+        fetch(API + '/api/partners', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, sandbox: true, jurisdiction: jurisdiction })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            document.getElementById('api-key-display').textContent = data.api_key;
+            document.getElementById('key-result').style.display = 'block';
+            document.getElementById('test-key').value = data.api_key;
+          })
+          .catch(function () { alert('Failed to create key'); });
+      };
+
+      document.getElementById('btn-test').onclick = function () {
+        var key = document.getElementById('test-key').value;
+        var result = document.getElementById('test-result');
+        result.textContent = 'Testing…';
+        fetch(API + '/api/quote/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
+          body: JSON.stringify({ items: [{ value: 100 }], scenario: 'retail', jurisdiction: 'US' })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.options) {
+              result.innerHTML = 'OK – ' + data.options.length + ' quotes returned. Jurisdiction: ' + (data.jurisdiction || '-') + '. Disclosures: ' + (data.disclosures ? data.disclosures.join(', ') : '-');
+            } else {
+              result.textContent = 'Error: ' + (data.error || 'Unknown');
+            }
+          })
+          .catch(function (e) {
+            result.textContent = 'Error: ' + e.message;
+          });
+      };
+
+      document.querySelectorAll('.code-block').forEach(function (el) {
+        el.textContent = el.textContent.replace(/\{\{API\}\}/g, API);
+      });
+    })();
+  </script>
+</body>
+</html>

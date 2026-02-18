@@ -3,8 +3,11 @@ const path = require('path');
 const scenarios = require('./scenarios');
 const providers = require('./providers');
 const store = require('./services/store');
+const actuarial = require('./services/actuarial');
 const blockchain = require('./services/blockchain');
 const insurer = require('./services/insurer');
+const compliance = require('./services/compliance');
+const partners = require('./services/partners');
 const { authMiddleware } = require('./middleware/auth');
 const { rateLimitQuote, rateLimitBind } = require('./middleware/rateLimit');
 
@@ -41,6 +44,32 @@ function getScenario(id) {
 
 app.get('/api/providers', (req, res) => res.json(providers));
 
+app.get('/api/compliance/jurisdictions', (req, res) => {
+  res.json({
+    supported: compliance.SUPPORTED_JURISDICTIONS,
+    default: compliance.getDefaultJurisdiction(),
+  });
+});
+
+app.post('/api/partners', (req, res) => {
+  try {
+    const { name, sandbox = true, jurisdiction = 'US' } = req.body || {};
+    const partner = partners.createPartner(name || 'New Partner', sandbox, jurisdiction);
+    res.status(201).json(partner);
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/api/partners', authMiddleware, (req, res) => {
+  try {
+    const list = partners.listPartners();
+    res.json({ partners: list });
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
 app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
@@ -50,31 +79,38 @@ app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
     const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
     if (invalid) return err(res, 400, 'Each item must have a non-negative numeric value', 'INVALID_ITEM_VALUE');
 
-    const value = items.reduce((s, i) => s + (i.value || 0), 0);
-    const options = [];
+    const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
+    if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
 
-    providers.forEach((provider) => {
-      provider.plans.forEach((plan) => {
-        const premium = parseFloat((value * plan.premium_rate).toFixed(2));
-        options.push({
-          provider_id: provider.id,
-          provider_name: provider.name,
-          provider_logo: provider.logo,
-          provider_tagline: provider.tagline,
-          plan_id: plan.id,
-          plan_name: plan.name,
-          premium,
-          coverage: plan.coverage,
-          benefits: plan.benefits,
-          summary: plan.summary || '',
-          terms_url: provider.terms_url || '/terms.html',
-          quote_id: `QTY_${provider.id}_${plan.id}_${Date.now()}`,
-        });
-      });
+    const value = items.reduce((s, i) => s + (i.value || 0), 0);
+    const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
+
+    const options = actuarialQuotes.map((q) => {
+      const provider = providers.find((p) => p.id === q.provider_id);
+      return {
+        provider_id: q.provider_id,
+        provider_name: q.provider_name,
+        provider_logo: provider?.logo || '🛡️',
+        provider_tagline: provider?.tagline || '',
+        plan_id: q.plan_id,
+        plan_name: q.plan_name,
+        premium: q.premium,
+        coverage: q.coverage,
+        benefits: provider?.plans?.find((p) => p.id === q.plan_id)?.benefits || [],
+        summary: provider?.plans?.find((p) => p.id === q.plan_id)?.summary || '',
+        terms_url: provider?.terms_url || '/terms.html',
+        quote_id: `QTY_${q.provider_id}_${q.plan_id}_${Date.now()}`,
+        actuarial: q.actuarial,
+      };
     });
 
-    store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction });
-    res.json({ cart_value: value, options, jurisdiction: jurisdiction || null });
+    store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
+    res.json({
+      cart_value: value,
+      options,
+      jurisdiction: comp.jurisdiction,
+      disclosures: comp.disclosures || compliance.getDisclosures(comp.jurisdiction),
+    });
   } catch (e) {
     console.error('Quote compare error:', e);
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
@@ -90,17 +126,23 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
     const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
     if (invalid) return err(res, 400, 'Each item must have a non-negative numeric value', 'INVALID_ITEM_VALUE');
 
+    const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
+    if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
+
     const scenario = getScenario(scenarioId);
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
-    const rate = scenario.premium_rate || 0.003;
-    const premium = parseFloat((value * rate).toFixed(2));
+    const quotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
+    const best = quotes.reduce((a, b) => (a.premium < b.premium ? a : b));
+    const premium = best.premium;
 
-    store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, scenario: scenario.id, jurisdiction });
+    store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, scenario: scenario.id, jurisdiction: comp.jurisdiction });
     res.json({
       quote_id: 'QTY' + Date.now(),
       premium,
       scenario: scenario.id,
-      jurisdiction: jurisdiction || null,
+      jurisdiction: comp.jurisdiction,
+      disclosures: comp.disclosures,
+      actuarial: best.actuarial,
       coverage: {
         type: scenario.coverage_type,
         max_value: scenario.max_value,
@@ -121,6 +163,9 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
     if (!customer?.email?.includes?.('@')) return err(res, 400, 'customer.email must be a valid email', 'INVALID_EMAIL');
     if (!transaction_id) return err(res, 400, 'transaction_id is required', 'INVALID_TRANSACTION_ID');
 
+    const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
+    if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
+
     const premium = parseFloat(premium_paid);
     if (isNaN(premium) || premium < 0) {
       return err(res, 400, 'premium_paid must be a non-negative number', 'INVALID_PREMIUM');
@@ -134,7 +179,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
     const commission = parseFloat((premium * commissionRate).toFixed(2));
 
     const policyId = 'POL_' + Date.now();
-    const bcResult = blockchain.recordPolicy(policyId, customer?.email, premium, coverage);
+    const bcResult = await blockchain.recordPolicy(policyId, customer?.email, premium, coverage);
 
     const policy = {
       policy_id: policyId,
@@ -157,6 +202,8 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       smart_contract_url: bcResult.smart_contract_url,
       tx_hash: bcResult.tx_hash,
       contract_address: bcResult.contract_address,
+      execution_steps: bcResult.execution_steps,
+      constructor_args: bcResult.constructor_args,
       recorded_at: new Date().toISOString(),
       partner_id: req.partnerId,
     };
@@ -173,6 +220,9 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       provider_name: policy.provider_name,
       smart_contract_url: bcResult.smart_contract_url,
       contract_address: bcResult.contract_address,
+      tx_hash: bcResult.tx_hash,
+      execution_steps: bcResult.execution_steps,
+      constructor_args: bcResult.constructor_args,
       coverage_details: policy.coverage_details,
     });
   } catch (e) {
@@ -270,6 +320,58 @@ app.post('/api/claim/trigger', authMiddleware, (req, res) => {
   }
 });
 
+app.get('/api/claims', authMiddleware, (req, res) => {
+  try {
+    const { policy_id, email, limit = 50 } = req.query;
+    let claims = store.claims();
+    if (policy_id) claims = claims.filter((c) => c.policy_id === policy_id);
+    if (email) {
+      const policyIds = store.policies().filter((p) => p.customer?.email === email).map((p) => p.policy_id);
+      claims = claims.filter((c) => policyIds.includes(c.policy_id));
+    }
+    claims = claims.slice(0, parseInt(limit, 10)).reverse();
+    res.json({ claims });
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/api/audit/:entityType/:entityId', authMiddleware, (req, res) => {
+  try {
+    const log = store.getAuditLog(req.params.entityType, req.params.entityId, 50);
+    res.json({ audit_log: log });
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/api/claim/:id', authMiddleware, (req, res) => {
+  try {
+    const claim = store.claims().find((c) => c.claim_id === req.params.id);
+    if (!claim) return err(res, 404, 'Claim not found', 'NOT_FOUND');
+    const policy = store.getPolicy(claim.policy_id);
+    res.json({ ...claim, policy });
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+app.patch('/api/claim/:id', authMiddleware, (req, res) => {
+  try {
+    const { status, payout_amount } = req.body || {};
+    const claim = store.claims().find((c) => c.claim_id === req.params.id);
+    if (!claim) return err(res, 404, 'Claim not found', 'NOT_FOUND');
+    const updates = {};
+    if (status) updates.status = status;
+    if (payout_amount != null) updates.payout_amount = parseFloat(payout_amount);
+    if (status === 'approved' || status === 'paid') updates.payout_at = new Date().toISOString();
+    const updated = store.updateClaim(req.params.id, updates);
+    res.json(updated);
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
 app.get('/api/policies', authMiddleware, (req, res) => {
   try {
     const { email, limit = 50 } = req.query;
@@ -277,6 +379,16 @@ app.get('/api/policies', authMiddleware, (req, res) => {
     if (email) policies = policies.filter((p) => p.customer?.email === email);
     policies = policies.slice(-limit).reverse();
     res.json({ policies });
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/api/policy/:id', authMiddleware, (req, res) => {
+  try {
+    const policy = store.getPolicy(req.params.id);
+    if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+    res.json(policy);
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
@@ -312,17 +424,43 @@ app.post('/api/webhook', (req, res) => {
   res.sendStatus(200);
 });
 
+app.get('/api/actuarial/backtest', authMiddleware, (req, res) => {
+  try {
+    const backtest = require('./scripts/actuarial-backtest');
+    const result = backtest.runBacktest();
+    res.json(result);
+  } catch (e) {
+    console.error('Backtest error:', e);
+    err(res, 500, 'Backtest failed', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/api/contract/simulate', authMiddleware, (req, res) => {
+  try {
+    const { policy_id, insured, premium, coverage } = req.query;
+    const result = blockchain.simulateContractExecution(
+      policy_id || 'POL_DEMO',
+      insured || 'customer@example.com',
+      parseFloat(premium) || 0.34,
+      parseInt(coverage, 10) || 1000
+    );
+    res.json(result);
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
 app.get('/', (req, res) => res.redirect('/checkout-ux-demo.html'));
+
+app.get('/api/scenarios', (req, res) => {
+  res.json(Object.values(scenarios));
+});
 
 app.use((req, res) => err(res, 404, 'Not found', 'NOT_FOUND'));
 
 app.use((e, req, res, next) => {
   console.error('Error:', e);
   err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
-});
-
-app.get('/api/scenarios', (req, res) => {
-  res.json(Object.values(scenarios));
 });
 
 app.listen(PORT, () => {
@@ -333,5 +471,11 @@ app.listen(PORT, () => {
   console.log(`  - Providers: http://localhost:${PORT}/providers-demo.html`);
   console.log(`  - Scenarios: http://localhost:${PORT}/scenarios-demo.html`);
   console.log(`  - Demo:      http://localhost:${PORT}/checkout-ux-demo.html`);
+  console.log(`  - Flow:     http://localhost:${PORT}/flow-demo.html`);
+  console.log(`  - Contract:  http://localhost:${PORT}/contract-demo.html`);
+  console.log(`  - Actuarial: http://localhost:${PORT}/actuarial-demo.html`);
+  console.log(`  - Claims:    http://localhost:${PORT}/claims.html`);
+  console.log(`  - Partners:  http://localhost:${PORT}/partner-dashboard.html`);
+  console.log(`  - Coverage:  http://localhost:${PORT}/coverage-demo.html`);
   console.log(`  - Widget:    http://localhost:${PORT}/widget.html\n`);
 });
