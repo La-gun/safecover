@@ -117,6 +117,100 @@ app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
   }
 });
 
+function aiRateOptions(options, cartValue) {
+  if (!options || options.length === 0) return [];
+  const adequate = options.filter((o) => (o.coverage || 0) >= cartValue);
+  const inadequate = options.filter((o) => (o.coverage || 0) < cartValue);
+  const sortByPremium = (a, b) => (a.premium || 0) - (b.premium || 0);
+  adequate.sort(sortByPremium);
+  inadequate.sort((a, b) => (b.coverage || 0) - (a.coverage || 0));
+  return adequate.concat(inadequate);
+}
+
+const SCENARIO_LABELS = {
+  retail: 'Retail & E-commerce',
+  logistics: 'Logistics & Shipping',
+  gadgets: 'Gadgets & Electronics',
+  hospitality: 'Hospitality & Travel',
+  food: 'Food & Delivery',
+  healthcare: 'Healthcare',
+  events: 'Events & Ticketing',
+  mobility: 'Mobility & Gig Economy',
+};
+
+function aiSuggestScenario(items) {
+  const text = (items || [])
+    .map((i) => (i.name || i.description || '').toLowerCase())
+    .join(' ');
+  if (!text) return 'retail';
+  const rules = [
+    { keywords: ['laptop', 'phone', 'tablet', 'headphone', 'cable', 'charger', 'electronic', 'gadget', 'device', 'usb', 'stand'], scenario: 'gadgets' },
+    { keywords: ['food', 'meal', 'delivery', 'restaurant', 'grocer'], scenario: 'food' },
+    { keywords: ['ticket', 'event', 'concert', 'show', 'game'], scenario: 'events' },
+    { keywords: ['hotel', 'flight', 'trip', 'travel', 'vacation', 'booking'], scenario: 'hospitality' },
+    { keywords: ['appointment', 'doctor', 'health', 'medical', 'clinic'], scenario: 'healthcare' },
+    { keywords: ['ship', 'package', 'delivery', 'freight', 'cargo'], scenario: 'logistics' },
+    { keywords: ['ride', 'uber', 'lyft', 'driver', 'gig'], scenario: 'mobility' },
+  ];
+  for (const rule of rules) {
+    if (rule.keywords.some((k) => text.includes(k))) return rule.scenario;
+  }
+  return 'retail';
+}
+
+app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
+  try {
+    const { items, scenario: scenarioId, jurisdiction } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return err(res, 400, 'items must be a non-empty array', 'INVALID_ITEMS');
+    }
+    const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
+    if (invalid) return err(res, 400, 'Each item must have a non-negative numeric value', 'INVALID_ITEM_VALUE');
+
+    const suggestedScenario = scenarioId || aiSuggestScenario(items);
+    const comp = compliance.complianceCheck({ jurisdiction, scenario: suggestedScenario });
+    if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
+
+    const value = items.reduce((s, i) => s + (i.value || 0), 0);
+    const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, suggestedScenario);
+
+    const options = actuarialQuotes.map((q) => {
+      const provider = providers.find((p) => p.id === q.provider_id);
+      return {
+        provider_id: q.provider_id,
+        provider_name: q.provider_name,
+        provider_logo: provider?.logo || '🛡️',
+        provider_tagline: provider?.tagline || '',
+        plan_id: q.plan_id,
+        plan_name: q.plan_name,
+        premium: q.premium,
+        coverage: q.coverage,
+        benefits: provider?.plans?.find((p) => p.id === q.plan_id)?.benefits || [],
+        summary: provider?.plans?.find((p) => p.id === q.plan_id)?.summary || '',
+        terms_url: provider?.terms_url || '/terms.html',
+        quote_id: `QTY_${q.provider_id}_${q.plan_id}_${Date.now()}`,
+        actuarial: q.actuarial,
+      };
+    });
+
+    const ranked = aiRateOptions(options, value);
+    const recommended = ranked[0] || null;
+
+    store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
+    res.json({
+      cart_value: value,
+      options: ranked,
+      recommended,
+      suggested_scenario: suggestedScenario,
+      jurisdiction: comp.jurisdiction,
+      disclosures: comp.disclosures || compliance.getDisclosures(comp.jurisdiction),
+    });
+  } catch (e) {
+    console.error('Quote rate error:', e);
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
 app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
@@ -193,7 +287,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       customer: customer,
       quote_id: quote_id,
       scenario: scenarioId || 'retail',
-      jurisdiction: jurisdiction || null,
+      jurisdiction: comp.jurisdiction || null,
       coverage_details: {
         type: scenario.coverage_type,
         max_value: coverage,

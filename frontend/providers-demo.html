@@ -136,7 +136,7 @@
       function renderOptions() {
         fetch(API + '/api/quote/compare', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({ items: [{ value: 89 }, { value: 24 }] })
         })
           .then(function (r) { return r.json(); })

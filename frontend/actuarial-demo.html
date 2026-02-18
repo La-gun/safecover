@@ -94,7 +94,7 @@
         var items = [{ value: value }];
         fetch(API + '/api/quote/compare', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({ items: items, scenario: scenario })
         })
           .then(function (r) { return r.json(); })

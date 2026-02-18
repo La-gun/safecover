@@ -2,6 +2,8 @@
 
 Embedded microinsurance for e-commerce checkouts. Works with **any platform**: Shopify, WooCommerce, BigCommerce, Magento, custom sites.
 
+> **Demo / Prototype** — This project is a demonstration and reference implementation. It is not intended for production use without proper insurance licensing, regulatory compliance, and security hardening. Use at your own risk.
+
 ## Documentation
 
 | Doc | Description |
@@ -106,4 +108,4 @@ Deploy `contracts/MicroInsurancePolicy.sol` with Hardhat, Foundry, or Remix.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.

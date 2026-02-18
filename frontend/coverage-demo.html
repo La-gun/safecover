@@ -164,7 +164,7 @@
 
         fetch(API + '/api/quote/compare', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({ items: wholeItems, scenario: 'retail' })
         })
           .then(function (r) { return r.json(); })
@@ -186,7 +186,7 @@
         if (selectItems.length > 0) {
           fetch(API + '/api/quote/compare', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
             body: JSON.stringify({ items: selectItems, scenario: 'retail' })
           })
             .then(function (r) { return r.json(); })

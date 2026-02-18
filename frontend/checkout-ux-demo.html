@@ -63,6 +63,8 @@
       font-size: 14px;
     }
     .cart-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eee; align-items: center; }
+    .cart-item-img-wrap { width: 48px; height: 48px; border-radius: 6px; overflow: hidden; background: #eee; flex-shrink: 0; }
+    .cart-item-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .cart-item:last-child { border-bottom: none; }
     .cart-item-details { flex: 1; min-width: 0; }
     .cart-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a1a1a; flex-shrink: 0; }
@@ -125,6 +127,38 @@
     .opt-terms a:hover { text-decoration: none; }
     .opt-blockchain { font-size: 10px; color: #0a7c42; margin-top: 6px; }
     .status-msg { margin-top: 12px; font-size: 13px; color: #0a7c42; }
+    /* Compact top-4 + other options layout */
+    .compact-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px; }
+    @media (min-width: 600px) { .compact-options { grid-template-columns: repeat(4, 1fr); } }
+    .compact-opt { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 2px solid #e0e0e0; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; min-width: 0; }
+    .compact-opt:hover { border-color: #1a1a1a; background: #fafafa; }
+    .compact-opt.selected { border-color: #1a1a1a; background: #f0f4ff; }
+    .compact-opt .opt-price { font-weight: 700; color: #1a1a1a; margin-left: auto; flex-shrink: 0; }
+    .compact-opt > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .compact-opt.recommended { border-color: #0a7c42; background: #f0fdf4; }
+    .compact-opt.recommended::before { content: '★'; color: #0a7c42; font-size: 12px; }
+    .other-options-wrap { margin-top: 8px; }
+    .other-options-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed #ccc; border-radius: 6px; background: #fafafa; cursor: pointer; font-size: 13px; color: #666; width: 100%; }
+    .other-options-toggle:hover { border-color: #1a1a1a; color: #1a1a1a; background: #f5f5f5; }
+    .other-options-toggle .chevron { transition: transform 0.2s; }
+    .other-options-toggle.open .chevron { transform: rotate(180deg); }
+    .other-options-list { display: none; margin-top: 8px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
+    .other-options-list.show { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    @media (min-width: 600px) { .other-options-list.show { grid-template-columns: repeat(4, 1fr); } }
+    .scenario-compact-opt { padding: 6px 10px; font-size: 12px; }
+    .subsection-title { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+    .subsection-desc { font-size: 13px; color: #666; margin: 0 0 12px; }
+    .cart-items-main { margin: 16px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
+    .cart-items-main .cart-item { background: #fff; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #eee; }
+    .cart-items-main .cart-item:last-child { margin-bottom: 0; }
+    .scenario-select { width: 100%; max-width: 320px; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: #fff; }
+    .protection-details { line-height: 1.6; }
+    .protection-details strong { display: block; margin-bottom: 4px; }
+    .product-type-row { margin: 16px 0; }
+    .terms-accept-row { margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
+    .terms-checkbox { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; }
+    .terms-checkbox input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a1a1a; flex-shrink: 0; margin-top: 2px; }
+    .terms-checkbox a { color: #1a1a1a; text-decoration: underline; }
     /* Post-payment documents */
     .documents-section { margin-top: 32px; padding-top: 24px; border-top: 2px solid #e0e0e0; display: none; }
     .documents-section.show { display: block; }
@@ -173,13 +207,44 @@
 
         <div class="protection-section">
           <h2 class="section-title">Choose your protection</h2>
-          <p class="protection-intro">Select coverage mode, then choose an insurance product. All plans include <a href="/terms.html" target="_blank">Terms & Conditions</a>.</p>
+          <p class="protection-intro">Select coverage mode and items to protect. Our AI rater picks the best product type and plan for your cart—no manual selection needed. Top 4 options shown; click "Other options" for more.</p>
           <div class="coverage-mode">
             <label><input type="radio" name="coverage-mode" value="whole" checked> Whole cart – cover entire order</label>
             <label><input type="radio" name="coverage-mode" value="select"> Selected items – choose which to protect</label>
           </div>
           <div id="coverage-hint" class="coverage-hint"></div>
-          <div id="protection-options" class="protection-grid"></div>
+          <div id="cart-items-main" class="cart-items-main" style="display:none">
+            <h3 class="subsection-title">Select items to protect</h3>
+            <p class="subsection-desc">Check the items you want included in your protection policy.</p>
+            <div id="cart-items-main-list"></div>
+          </div>
+          <div class="product-type-row">
+            <span class="subsection-title" style="margin:0 0 8px;display:block">AI Recommended product type</span>
+            <div id="scenario-compact" class="compact-options"></div>
+            <div class="other-options-wrap">
+              <button type="button" id="scenario-other-toggle" class="other-options-toggle">
+                <span class="chevron">▼</span>
+                <span>Other product types</span>
+              </button>
+              <div id="scenario-other-list" class="other-options-list"></div>
+            </div>
+          </div>
+          <h3 class="subsection-title">AI Recommended Protection</h3>
+          <div id="protection-compact" class="compact-options"></div>
+          <div class="other-options-wrap">
+            <button type="button" id="protection-other-toggle" class="other-options-toggle">
+              <span class="chevron">▼</span>
+              <span>Other options</span>
+            </button>
+            <div id="protection-other-list" class="other-options-list"></div>
+          </div>
+          <div id="protection-details" class="protection-details" style="display:none; margin-top:12px; padding:12px; background:#f8f9fa; border-radius:8px; border:1px solid #e8e8e8; font-size:13px;"></div>
+          <div id="terms-accept-row" class="terms-accept-row" style="display:none">
+            <label class="terms-checkbox">
+              <input type="checkbox" id="terms-accept">
+              <span>I have read and agree to the <a id="terms-link" href="/terms.html" target="_blank" rel="noopener" onclick="event.stopPropagation()">Terms & Conditions</a> of the selected plan</span>
+            </label>
+          </div>
           <div id="status-msg" class="status-msg" style="display:none"></div>
         </div>
       </div>
@@ -225,14 +290,27 @@
     (function () {
       var API = window.location.origin;
       var cartItems = [
-        { id: '1', name: 'Wireless Headphones', qty: 1, price: 89 },
-        { id: '2', name: 'USB-C Cable Pack', qty: 2, price: 24 },
-        { id: '3', name: 'Laptop Stand', qty: 1, price: 45 }
+        { id: '1', name: 'Wireless Headphones', qty: 1, price: 89, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=96&h=96&fit=crop' },
+        { id: '2', name: 'USB-C Cable Pack', qty: 2, price: 24, image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=96&h=96&fit=crop' },
+        { id: '3', name: 'Laptop Stand', qty: 1, price: 45, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=96&h=96&fit=crop' }
       ];
       var selectedIds = new Set(cartItems.map(function (i) { return i.id; }));
       var coverageMode = 'whole';
       var selectedOption = null;
       var allOptions = [];
+      var scenarioId = 'retail';
+      var scenarioSuggested = false;
+      var SCENARIO_LABELS = {
+        retail: 'Retail & E-commerce',
+        logistics: 'Logistics & Shipping',
+        gadgets: 'Gadgets & Electronics',
+        hospitality: 'Hospitality & Travel',
+        food: 'Food & Delivery',
+        healthcare: 'Healthcare',
+        events: 'Events & Ticketing',
+        mobility: 'Mobility & Gig Economy'
+      };
+      var SCENARIO_TOP4 = ['retail', 'logistics', 'gadgets', 'hospitality'];
 
       var BASE = window.location.origin;
       var FALLBACK_OPTIONS = [
@@ -255,8 +333,8 @@
       }
 
       function getItemsForQuote() {
-        if (coverageMode === 'whole') return cartItems.map(function (i) { return { value: i.price * i.qty }; });
-        return cartItems.filter(function (i) { return selectedIds.has(i.id); }).map(function (i) { return { value: i.price * i.qty }; });
+        var items = coverageMode === 'whole' ? cartItems : cartItems.filter(function (i) { return selectedIds.has(i.id); });
+        return items.map(function (i) { return { value: i.price * i.qty, name: i.name }; });
       }
 
       function getCoveredValue() {
@@ -272,7 +350,7 @@
           if (coverageMode === 'select') {
             html += '<input type="checkbox" data-id="' + i.id + '" ' + (checked ? 'checked' : '') + '>';
           }
-          html += '<div style="width:48px;height:48px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
+          html += '<div class="cart-item-img-wrap"><img src="' + (i.image || '') + '" alt="' + (i.name || '').replace(/"/g, '&quot;') + '" onerror="this.style.display=\'none\'"></div>';
           html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">Qty: ' + i.qty + '</div></div>';
           html += '<div class="cart-item-price">$' + lineTotal.toFixed(2) + '</div></div>';
         });
@@ -292,45 +370,125 @@
         }
       }
 
-      function renderOptions(options) {
-        var html = '';
-        html += '<div class="opt-card no-cover" data-id="none"><div class="opt-provider">No protection</div><div class="opt-plan">Skip</div><div class="opt-price">$0.00</div><div class="opt-coverage">Not covered</div></div>';
-        options.forEach(function (opt) {
-          var benefits = (opt.benefits || []).map(function (b) { return '<li>' + b + '</li>'; }).join('');
+      function selectProtectionOption(opt, optEl) {
+        var details = document.getElementById('protection-details');
+        if (!opt) {
+          selectedOption = null;
+          document.getElementById('terms-accept-row').style.display = 'none';
+          document.getElementById('terms-accept').checked = false;
+          details.style.display = 'none';
+          updateSummary(null);
+          document.querySelectorAll('#protection-compact .compact-opt, #protection-other-list .compact-opt').forEach(function (el) { el.classList.remove('selected'); });
+          return;
+        }
+        selectedOption = {
+          provider_id: opt.provider_id,
+          plan_id: opt.plan_id,
+          quote_id: opt.quote_id,
+          premium: opt.premium,
+          label: opt.provider_name + ' ' + opt.plan_name,
+          terms_url: (opt.terms_url || '/terms.html').indexOf('http') === 0 ? opt.terms_url : (window.location.origin || '') + opt.terms_url
+        };
+        document.getElementById('terms-accept-row').style.display = 'block';
+        document.getElementById('terms-link').href = selectedOption.terms_url;
+        document.getElementById('terms-accept').checked = false;
+        details.style.display = 'block';
+        details.innerHTML = '<strong>' + selectedOption.label + '</strong>' +
+          (opt.summary ? '<div style="margin:6px 0;color:#555">' + opt.summary + '</div>' : '') +
+          (opt.benefits && opt.benefits.length ? '<div style="font-size:12px;color:#666">' + opt.benefits.map(function (b) { return '• ' + b; }).join('<br>') + '</div>' : '') +
+          '<div style="margin-top:8px"><a href="' + selectedOption.terms_url + '" target="_blank" rel="noopener">Terms & Conditions</a></div>';
+        updateSummary(selectedOption);
+        document.querySelectorAll('#protection-compact .compact-opt, #protection-other-list .compact-opt').forEach(function (el) { el.classList.remove('selected'); });
+        if (optEl) optEl.classList.add('selected');
+      }
+
+      function renderProtectionCompact(options, recommended, defaultToNone) {
+        var compact = document.getElementById('protection-compact');
+        var otherList = document.getElementById('protection-other-list');
+        var details = document.getElementById('protection-details');
+        compact.innerHTML = '';
+        otherList.innerHTML = '';
+
+        var defaultOpt = defaultToNone ? null : (selectedOption ? options.find(function (o) { return o.provider_id === selectedOption.provider_id && o.plan_id === selectedOption.plan_id; }) : (recommended || options[0]));
+        var noProt = document.createElement('div');
+        noProt.className = 'compact-opt' + (!defaultOpt ? ' selected' : '');
+        noProt.textContent = 'No protection';
+        noProt.dataset.value = 'none';
+        noProt.onclick = function () {
+          selectProtectionOption(null);
+          document.querySelectorAll('#protection-compact .compact-opt, #protection-other-list .compact-opt').forEach(function (e) { e.classList.remove('selected'); });
+          noProt.classList.add('selected');
+        };
+        compact.appendChild(noProt);
+
+        if (!options || options.length === 0) {
+          selectProtectionOption(null);
+          return;
+        }
+
+        var top4 = options.slice(0, 4);
+        var rest = options.slice(4);
+        var selectedEl = null;
+
+        top4.forEach(function (opt) {
           var termsUrl = opt.terms_url || '/terms.html';
           if (termsUrl.indexOf('http') !== 0) termsUrl = (window.location.origin || '') + termsUrl;
-          html += '<div class="opt-card" data-provider="' + opt.provider_id + '" data-plan="' + opt.plan_id + '" data-quote="' + opt.quote_id + '" data-premium="' + opt.premium + '" data-label="' + opt.provider_name + ' ' + opt.plan_name + '">';
-          html += '<div class="opt-provider">' + (opt.provider_logo || '') + ' ' + opt.provider_name + '</div>';
-          html += '<div class="opt-plan">' + opt.plan_name + '</div>';
-          html += '<div class="opt-price">$' + opt.premium.toFixed(2) + '</div>';
-          html += '<div class="opt-coverage">Up to $' + (opt.coverage || 0).toLocaleString() + '</div>';
-          if (opt.summary) html += '<div class="opt-summary">' + opt.summary + '</div>';
-          html += '<ul class="opt-benefits">' + benefits + '</ul>';
-          html += '<div class="opt-terms"><a href="' + termsUrl + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">Terms & Conditions</a></div>';
-          html += '<div class="opt-blockchain">Secured on Blockchain</div></div>';
+          var isRec = recommended && recommended.provider_id === opt.provider_id && recommended.plan_id === opt.plan_id;
+          var isSel = defaultOpt && defaultOpt.provider_id === opt.provider_id && defaultOpt.plan_id === opt.plan_id;
+          var el = document.createElement('div');
+          el.className = 'compact-opt' + (isRec ? ' recommended' : '') + (isSel ? ' selected' : '');
+          el.innerHTML = '<span>' + (opt.provider_logo || '') + ' ' + opt.provider_name + ' ' + opt.plan_name + '</span><span class="opt-price">$' + opt.premium.toFixed(2) + '</span>';
+          if (isSel) selectedEl = el;
+          el.onclick = function () { selectProtectionOption(opt, el); };
+          compact.appendChild(el);
         });
-        document.getElementById('protection-options').innerHTML = html;
 
-        document.querySelector('.opt-card.no-cover').classList.add('selected');
-        document.querySelectorAll('.opt-card').forEach(function (card) {
-          card.onclick = function () {
-            document.querySelectorAll('.opt-card').forEach(function (c) { c.classList.remove('selected'); });
-            card.classList.add('selected');
-            if (card.dataset.id === 'none') {
-              selectedOption = null;
-              updateSummary(null);
-              return;
-            }
-            selectedOption = {
-              provider_id: card.dataset.provider,
-              plan_id: card.dataset.plan,
-              quote_id: card.dataset.quote,
-              premium: parseFloat(card.dataset.premium),
-              label: card.dataset.label
-            };
-            updateSummary(selectedOption);
-          };
+        rest.forEach(function (opt) {
+          var termsUrl = opt.terms_url || '/terms.html';
+          if (termsUrl.indexOf('http') !== 0) termsUrl = (window.location.origin || '') + termsUrl;
+          var isRec = recommended && recommended.provider_id === opt.provider_id && recommended.plan_id === opt.plan_id;
+          var isSel = defaultOpt && defaultOpt.provider_id === opt.provider_id && defaultOpt.plan_id === opt.plan_id;
+          var el = document.createElement('div');
+          el.className = 'compact-opt' + (isRec ? ' recommended' : '') + (isSel ? ' selected' : '');
+          el.innerHTML = '<span>' + (opt.provider_logo || '') + ' ' + opt.provider_name + ' ' + opt.plan_name + '</span><span class="opt-price">$' + opt.premium.toFixed(2) + '</span>';
+          if (isSel) selectedEl = el;
+          el.onclick = function () { selectProtectionOption(opt, el); document.getElementById('protection-other-toggle').classList.remove('open'); document.getElementById('protection-other-list').classList.remove('show'); };
+          otherList.appendChild(el);
         });
+
+        var toggle = document.getElementById('protection-other-toggle');
+        toggle.style.display = rest.length ? 'flex' : 'none';
+        toggle.querySelector('span:last-child').textContent = 'Other options' + (rest.length ? ' (' + rest.length + ')' : '');
+        if (defaultOpt) selectProtectionOption(defaultOpt, selectedEl);
+        else selectProtectionOption(null);
+      }
+
+      function renderScenarioCompact() {
+        var compact = document.getElementById('scenario-compact');
+        var otherList = document.getElementById('scenario-other-list');
+        var top4Ids = SCENARIO_TOP4;
+        var restIds = Object.keys(SCENARIO_LABELS).filter(function (k) { return top4Ids.indexOf(k) === -1; });
+        compact.innerHTML = '';
+        otherList.innerHTML = '';
+        top4Ids.forEach(function (id) {
+          var el = document.createElement('div');
+          el.className = 'compact-opt scenario-compact-opt' + (scenarioId === id ? ' selected' : '');
+          el.textContent = SCENARIO_LABELS[id] || id;
+          el.dataset.scenario = id;
+          el.onclick = function () { scenarioId = id; scenarioSuggested = true; renderScenarioCompact(); fetchAndRenderOptions(); updateSummary(selectedOption); };
+          compact.appendChild(el);
+        });
+        restIds.forEach(function (id) {
+          var el = document.createElement('div');
+          el.className = 'compact-opt scenario-compact-opt' + (scenarioId === id ? ' selected' : '');
+          el.textContent = SCENARIO_LABELS[id] || id;
+          el.dataset.scenario = id;
+          el.onclick = function () { scenarioId = id; scenarioSuggested = true; renderScenarioCompact(); document.getElementById('scenario-other-toggle').classList.remove('open'); document.getElementById('scenario-other-list').classList.remove('show'); fetchAndRenderOptions(); updateSummary(selectedOption); };
+          otherList.appendChild(el);
+        });
+        var stoggle = document.getElementById('scenario-other-toggle');
+        stoggle.style.display = restIds.length ? 'flex' : 'none';
+        stoggle.querySelector('span:last-child').textContent = 'Other product types' + (restIds.length ? ' (' + restIds.length + ')' : '');
       }
 
       function updateSummary(opt) {
@@ -363,27 +521,65 @@
         }
       }
 
+      function renderCartItemsMain() {
+        var main = document.getElementById('cart-items-main');
+        var list = document.getElementById('cart-items-main-list');
+        if (coverageMode !== 'select') {
+          main.style.display = 'none';
+          return;
+        }
+        main.style.display = 'block';
+        var html = '';
+        cartItems.forEach(function (i) {
+          var lineTotal = i.price * i.qty;
+          var checked = selectedIds.has(i.id);
+          html += '<div class="cart-item' + (checked ? '' : ' excluded') + '">';
+          html += '<input type="checkbox" data-id="' + i.id + '" ' + (checked ? 'checked' : '') + '>';
+          html += '<div class="cart-item-img-wrap"><img src="' + (i.image || '') + '" alt="' + (i.name || '').replace(/"/g, '&quot;') + '" onerror="this.style.display=\'none\'"></div>';
+          html += '<div class="cart-item-details" style="flex:1"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">Qty: ' + i.qty + ' × $' + i.price.toFixed(2) + '</div></div>';
+          html += '<div class="cart-item-price">$' + lineTotal.toFixed(2) + '</div></div>';
+        });
+        list.innerHTML = html;
+        list.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+          cb.onchange = function () {
+            if (cb.checked) selectedIds.add(cb.dataset.id);
+            else selectedIds.delete(cb.dataset.id);
+            cb.closest('.cart-item').classList.toggle('excluded', !cb.checked);
+            renderCartSidebar();
+            updateCoverageHint();
+            fetchAndRenderOptions();
+            updateSummary(selectedOption);
+          };
+        });
+      }
+
       function fetchAndRenderOptions() {
         var items = getItemsForQuote();
         updateCoverageHint();
         if (items.length === 0) {
           var zeroOpts = FALLBACK_OPTIONS.map(function (o) { var c = {}; for (var k in o) c[k] = o[k]; c.premium = 0; return c; });
-          renderOptions(zeroOpts);
+          renderProtectionCompact(zeroOpts, null, true);
           return;
         }
-        fetch(API + '/api/quote/compare', {
+        fetch(API + '/api/quote/rate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: items, scenario: 'retail', jurisdiction: 'US' })
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+          body: JSON.stringify({ items: items, scenario: scenarioSuggested ? scenarioId : undefined, jurisdiction: 'US' })
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
+            if (data.suggested_scenario) {
+              scenarioId = data.suggested_scenario;
+              scenarioSuggested = true;
+              renderScenarioCompact();
+            }
             allOptions = (data.options && data.options.length) ? data.options : FALLBACK_OPTIONS;
-            renderOptions(allOptions);
+            var recommended = data.recommended || allOptions[0] || null;
+            renderProtectionCompact(allOptions, recommended);
           })
           .catch(function () {
             allOptions = FALLBACK_OPTIONS;
-            renderOptions(allOptions);
+            renderProtectionCompact(allOptions, allOptions[0]);
           });
       }
 
@@ -392,11 +588,21 @@
           coverageMode = radio.value;
           if (coverageMode === 'whole') selectedIds = new Set(cartItems.map(function (i) { return i.id; }));
           renderCartSidebar();
+          renderCartItemsMain();
           updateCoverageHint();
           fetchAndRenderOptions();
           updateSummary(selectedOption);
         };
       });
+
+      document.getElementById('scenario-other-toggle').onclick = function () {
+        this.classList.toggle('open');
+        document.getElementById('scenario-other-list').classList.toggle('show');
+      };
+      document.getElementById('protection-other-toggle').onclick = function () {
+        this.classList.toggle('open');
+        document.getElementById('protection-other-list').classList.toggle('show');
+      };
 
       var orderId = 'ORD_' + Date.now();
 
@@ -458,6 +664,10 @@
       }
 
       document.getElementById('pay-btn').onclick = function () {
+        if (selectedOption && !document.getElementById('terms-accept').checked) {
+          alert('Please agree to the Terms & Conditions of the selected plan before proceeding.');
+          return;
+        }
         var btn = document.getElementById('pay-btn');
         btn.disabled = true;
         btn.textContent = 'Processing…';
@@ -477,14 +687,16 @@
 
         fetch(API + '/api/policy/bind', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({
             quote_id: selectedOption.quote_id,
             transaction_id: orderId,
             customer: { email: 'customer@example.com', name: 'Demo User' },
             premium_paid: selectedOption.premium,
             provider_id: selectedOption.provider_id,
-            plan_id: selectedOption.plan_id
+            plan_id: selectedOption.plan_id,
+            scenario: scenarioId,
+            jurisdiction: 'US'
           })
         })
           .then(function (r) { return r.json(); })
@@ -492,7 +704,7 @@
             document.getElementById('success-banner').textContent = 'Order complete. Policy ' + res.policy_id + ' issued with ' + (res.provider_name || selectedOption.label) + '.';
             document.getElementById('insurance-invoice-card').style.display = 'block';
             document.getElementById('insurance-contract-card').style.display = 'block';
-            return fetch(API + '/api/policy/' + res.policy_id);
+            return fetch(API + '/api/policy/' + res.policy_id, { headers: { 'X-API-Key': 'demo' } });
           })
           .then(function (r) { return r.json(); })
           .then(function (policy) {
@@ -542,6 +754,8 @@
       };
 
       renderCartSidebar();
+      renderCartItemsMain();
+      renderScenarioCompact();
       fetchAndRenderOptions();
     })();
   </script>
