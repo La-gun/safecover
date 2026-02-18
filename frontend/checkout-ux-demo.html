@@ -62,9 +62,14 @@
       border-radius: 6px;
       font-size: 14px;
     }
-    .cart-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eee; }
+    .cart-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eee; align-items: center; }
     .cart-item:last-child { border-bottom: none; }
-    .cart-item-details { flex: 1; }
+    .cart-item-details { flex: 1; min-width: 0; }
+    .cart-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a1a1a; flex-shrink: 0; }
+    .cart-item.excluded { opacity: 0.5; }
+    .coverage-mode { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .coverage-mode label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+    .coverage-mode input[type="radio"] { width: 18px; height: 18px; accent-color: #1a1a1a; }
     .cart-item-name { font-weight: 500; font-size: 14px; }
     .cart-item-meta { font-size: 13px; color: #666; margin-top: 2px; }
     .cart-item-price { font-weight: 600; font-size: 14px; }
@@ -86,6 +91,8 @@
     /* Multi-provider protection options */
     .protection-section { margin-top: 24px; }
     .protection-intro { font-size: 13px; color: #666; margin: -8px 0 16px; }
+    .protection-intro a { color: #1a1a1a; text-decoration: underline; }
+    .coverage-hint { font-size: 12px; color: #0a7c42; margin-bottom: 12px; }
     .protection-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -118,6 +125,26 @@
     .opt-terms a:hover { text-decoration: none; }
     .opt-blockchain { font-size: 10px; color: #0a7c42; margin-top: 6px; }
     .status-msg { margin-top: 12px; font-size: 13px; color: #0a7c42; }
+    /* Post-payment documents */
+    .documents-section { margin-top: 32px; padding-top: 24px; border-top: 2px solid #e0e0e0; display: none; }
+    .documents-section.show { display: block; }
+    .documents-section h2 { font-size: 1.25rem; margin: 0 0 16px; }
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .doc-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .doc-card h3 { margin: 0; padding: 12px 16px; background: #f8f8f8; font-size: 14px; border-bottom: 1px solid #eee; }
+    .doc-card .doc-body { padding: 16px; font-size: 13px; line-height: 1.6; max-height: 320px; overflow-y: auto; }
+    .doc-card .doc-body .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+    .doc-card .doc-body .row:last-child { border-bottom: none; }
+    .doc-card .doc-footer { padding: 10px 16px; background: #fafafa; border-top: 1px solid #eee; }
+    .doc-card .doc-footer button { padding: 8px 14px; font-size: 12px; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    .doc-card .doc-footer button:hover { background: #333; }
+    .success-banner { background: #dcfce7; color: #166534; padding: 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -146,7 +173,12 @@
 
         <div class="protection-section">
           <h2 class="section-title">Choose your protection</h2>
-          <p class="protection-intro">Select one option or skip. All providers shown below.</p>
+          <p class="protection-intro">Select coverage mode, then choose an insurance product. All plans include <a href="/terms.html" target="_blank">Terms & Conditions</a>.</p>
+          <div class="coverage-mode">
+            <label><input type="radio" name="coverage-mode" value="whole" checked> Whole cart – cover entire order</label>
+            <label><input type="radio" name="coverage-mode" value="select"> Selected items – choose which to protect</label>
+          </div>
+          <div id="coverage-hint" class="coverage-hint"></div>
           <div id="protection-options" class="protection-grid"></div>
           <div id="status-msg" class="status-msg" style="display:none"></div>
         </div>
@@ -154,22 +186,7 @@
 
       <div class="checkout-sidebar">
         <h2 class="section-title">Order summary</h2>
-        <div class="cart-item">
-          <div style="width:48px;height:48px;background:#eee;border-radius:6px;flex-shrink:0"></div>
-          <div class="cart-item-details">
-            <div class="cart-item-name">Wireless Headphones</div>
-            <div class="cart-item-meta">Qty: 1</div>
-          </div>
-          <div class="cart-item-price">$89.00</div>
-        </div>
-        <div class="cart-item">
-          <div style="width:48px;height:48px;background:#eee;border-radius:6px;flex-shrink:0"></div>
-          <div class="cart-item-details">
-            <div class="cart-item-name">USB-C Cable Pack</div>
-            <div class="cart-item-meta">Qty: 2</div>
-          </div>
-          <div class="cart-item-price">$24.00</div>
-        </div>
+        <div id="cart-items-sidebar"></div>
         <div class="order-summary-row"><span>Subtotal</span><span>$113.00</span></div>
         <div class="order-summary-row" id="protection-row" style="display:none">
           <span id="protection-label">Protection</span>
@@ -180,13 +197,42 @@
         <button class="pay-btn" id="pay-btn">Pay $113.00</button>
       </div>
     </div>
+
+    <div class="documents-section" id="documents-section">
+      <div class="success-banner" id="success-banner"></div>
+      <h2>Generated documents</h2>
+      <div class="doc-grid">
+        <div class="doc-card">
+          <h3>Invoice – Items / Services</h3>
+          <div class="doc-body" id="items-invoice"></div>
+          <div class="doc-footer"><button type="button" id="btn-print-items">Print</button></div>
+        </div>
+        <div class="doc-card" id="insurance-invoice-card" style="display:none">
+          <h3>Invoice – Insurance</h3>
+          <div class="doc-body" id="insurance-invoice"></div>
+          <div class="doc-footer"><button type="button" id="btn-print-insurance">Print</button></div>
+        </div>
+        <div class="doc-card" id="insurance-contract-card" style="display:none">
+          <h3>Insurance contract (issued)</h3>
+          <div class="doc-body" id="insurance-contract"></div>
+          <div class="doc-footer"><button type="button" id="btn-print-contract">Print</button></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
     (function () {
       var API = window.location.origin;
-      var cartValue = 113;
+      var cartItems = [
+        { id: '1', name: 'Wireless Headphones', qty: 1, price: 89 },
+        { id: '2', name: 'USB-C Cable Pack', qty: 2, price: 24 },
+        { id: '3', name: 'Laptop Stand', qty: 1, price: 45 }
+      ];
+      var selectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+      var coverageMode = 'whole';
       var selectedOption = null;
+      var allOptions = [];
 
       var BASE = window.location.origin;
       var FALLBACK_OPTIONS = [
@@ -203,6 +249,48 @@
         { provider_id: 'assurex', provider_name: 'AssureX', provider_logo: '✓', plan_id: 'core', plan_name: 'Core', premium: 0.40, coverage: 1200, benefits: ['Full protection', '14 days'], summary: 'Full transit protection with easy online claims. 14-day coverage.', terms_url: BASE + '/terms.html?provider=assurex', quote_id: 'QTY_assurex_core' },
         { provider_id: 'assurex', provider_name: 'AssureX', provider_logo: '✓', plan_id: 'ultimate', plan_name: 'Ultimate', premium: 0.57, coverage: 4000, benefits: ['Maximum coverage', '45 days'], summary: 'Maximum coverage with concierge support. 45-day protection.', terms_url: BASE + '/terms.html?provider=assurex', quote_id: 'QTY_assurex_ultimate' },
       ];
+
+      function getCartValue() {
+        return cartItems.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+      }
+
+      function getItemsForQuote() {
+        if (coverageMode === 'whole') return cartItems.map(function (i) { return { value: i.price * i.qty }; });
+        return cartItems.filter(function (i) { return selectedIds.has(i.id); }).map(function (i) { return { value: i.price * i.qty }; });
+      }
+
+      function getCoveredValue() {
+        return getItemsForQuote().reduce(function (s, i) { return s + i.value; }, 0);
+      }
+
+      function renderCartSidebar() {
+        var html = '';
+        cartItems.forEach(function (i) {
+          var lineTotal = i.price * i.qty;
+          var checked = coverageMode === 'whole' || selectedIds.has(i.id);
+          html += '<div class="cart-item' + (coverageMode === 'select' && !checked ? ' excluded' : '') + '">';
+          if (coverageMode === 'select') {
+            html += '<input type="checkbox" data-id="' + i.id + '" ' + (checked ? 'checked' : '') + '>';
+          }
+          html += '<div style="width:48px;height:48px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
+          html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">Qty: ' + i.qty + '</div></div>';
+          html += '<div class="cart-item-price">$' + lineTotal.toFixed(2) + '</div></div>';
+        });
+        document.getElementById('cart-items-sidebar').innerHTML = html;
+        if (coverageMode === 'select') {
+          document.querySelectorAll('#cart-items-sidebar input[type="checkbox"]').forEach(function (cb) {
+            cb.onclick = function (e) { e.stopPropagation(); };
+            cb.onchange = function () {
+              if (cb.checked) selectedIds.add(cb.dataset.id);
+              else selectedIds.delete(cb.dataset.id);
+              cb.closest('.cart-item').classList.toggle('excluded', !cb.checked);
+              updateCoverageHint();
+              fetchAndRenderOptions();
+              updateSummary(selectedOption);
+            };
+          });
+        }
+      }
 
       function renderOptions(options) {
         var html = '';
@@ -246,6 +334,7 @@
       }
 
       function updateSummary(opt) {
+        var cartValue = getCartValue();
         var row = document.getElementById('protection-row');
         var totalEl = document.getElementById('total-amount');
         var payBtn = document.getElementById('pay-btn');
@@ -263,31 +352,135 @@
         payBtn.textContent = 'Pay $' + total.toFixed(2);
       }
 
-      fetch(API + '/api/quote/compare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: [{ value: 89 }, { value: 24 }] })
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          var opts = (data.options && data.options.length) ? data.options : FALLBACK_OPTIONS;
-          renderOptions(opts);
-        })
-        .catch(function () {
-          renderOptions(FALLBACK_OPTIONS);
-        });
+      function updateCoverageHint() {
+        var hint = document.getElementById('coverage-hint');
+        var cartVal = getCartValue();
+        var coveredVal = getCoveredValue();
+        if (coverageMode === 'whole') {
+          hint.textContent = 'Covering entire order: $' + cartVal.toFixed(2);
+        } else {
+          hint.textContent = 'Covering $' + coveredVal.toFixed(2) + ' of $' + cartVal.toFixed(2) + ' (selected items)';
+        }
+      }
 
-      document.getElementById('pay-btn').onclick = function () {
-        if (!selectedOption) {
-          alert('Order placed without protection.');
+      function fetchAndRenderOptions() {
+        var items = getItemsForQuote();
+        updateCoverageHint();
+        if (items.length === 0) {
+          var zeroOpts = FALLBACK_OPTIONS.map(function (o) { var c = {}; for (var k in o) c[k] = o[k]; c.premium = 0; return c; });
+          renderOptions(zeroOpts);
           return;
         }
+        fetch(API + '/api/quote/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: items, scenario: 'retail', jurisdiction: 'US' })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            allOptions = (data.options && data.options.length) ? data.options : FALLBACK_OPTIONS;
+            renderOptions(allOptions);
+          })
+          .catch(function () {
+            allOptions = FALLBACK_OPTIONS;
+            renderOptions(allOptions);
+          });
+      }
+
+      document.querySelectorAll('input[name="coverage-mode"]').forEach(function (radio) {
+        radio.onchange = function () {
+          coverageMode = radio.value;
+          if (coverageMode === 'whole') selectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+          renderCartSidebar();
+          updateCoverageHint();
+          fetchAndRenderOptions();
+          updateSummary(selectedOption);
+        };
+      });
+
+      var orderId = 'ORD_' + Date.now();
+
+      function renderItemsInvoice() {
+        var cartVal = getCartValue();
+        var html = '';
+        html += '<div class="row"><strong>Invoice #</strong><span>' + orderId + '</span></div>';
+        html += '<div class="row"><strong>Date</strong><span>' + new Date().toLocaleDateString() + '</span></div>';
+        html += '<div class="row"><strong>Customer</strong><span>customer@example.com</span></div>';
+        html += '<div class="row"><strong>Address</strong><span>123 Main St, New York, NY</span></div>';
+        html += '<div class="row" style="border-top:1px solid #ddd;margin-top:8px;padding-top:8px"></div>';
+        cartItems.forEach(function (i) {
+          html += '<div class="row"><span>' + i.name + ' (x' + i.qty + ')</span><span>$' + (i.price * i.qty).toFixed(2) + '</span></div>';
+        });
+        html += '<div class="row"><span>Shipping</span><span>Free</span></div>';
+        html += '<div class="row" style="font-weight:700;border-top:1px solid #ddd;margin-top:8px;padding-top:8px"><span>Total</span><span>$' + cartVal.toFixed(2) + '</span></div>';
+        document.getElementById('items-invoice').innerHTML = html;
+      }
+
+      function renderInsuranceInvoice(policy, opt) {
+        var coveredVal = getCoveredValue();
+        var html = '';
+        html += '<div class="row"><strong>Invoice #</strong><span>INV-' + (policy.policy_id || orderId) + '</span></div>';
+        html += '<div class="row"><strong>Policy ID</strong><span>' + (policy.policy_id || '—') + '</span></div>';
+        html += '<div class="row"><strong>Provider</strong><span>' + (policy.provider_name || (opt && opt.label)) + '</span></div>';
+        html += '<div class="row"><strong>Plan</strong><span>' + (opt ? opt.label : policy.plan_id) + '</span></div>';
+        html += '<div class="row"><strong>Coverage mode</strong><span>' + (coverageMode === 'whole' ? 'Whole cart' : 'Selected items') + '</span></div>';
+        html += '<div class="row"><strong>Insured value</strong><span>$' + coveredVal.toFixed(2) + '</span></div>';
+        html += '<div class="row"><strong>Coverage limit</strong><span>Up to $' + (policy.coverage_details && policy.coverage_details.max_value || 0).toLocaleString() + '</span></div>';
+        html += '<div class="row"><strong>Duration</strong><span>' + (policy.coverage_details && policy.coverage_details.duration || '—') + '</span></div>';
+        html += '<div class="row" style="font-weight:700;border-top:1px solid #ddd;margin-top:8px;padding-top:8px"><span>Premium paid</span><span>$' + (policy.premium || 0).toFixed(2) + '</span></div>';
+        document.getElementById('insurance-invoice').innerHTML = html;
+      }
+
+      function renderInsuranceContract(policy) {
+        var coveredVal = getCoveredValue();
+        var html = '';
+        html += '<div class="row"><strong>Policy ID</strong><span>' + (policy.policy_id || '—') + '</span></div>';
+        html += '<div class="row"><strong>Provider</strong><span>' + (policy.provider_name || '—') + '</span></div>';
+        html += '<div class="row"><strong>Plan</strong><span>' + (policy.plan_id || '—') + '</span></div>';
+        html += '<div class="row"><strong>Premium</strong><span>$' + (policy.premium || 0).toFixed(2) + '</span></div>';
+        html += '<div class="row"><strong>Coverage mode</strong><span>' + (coverageMode === 'whole' ? 'Whole cart' : 'Selected items') + '</span></div>';
+        html += '<div class="row"><strong>Insured value</strong><span>$' + coveredVal.toFixed(2) + '</span></div>';
+        html += '<div class="row"><strong>Coverage type</strong><span>' + (policy.coverage_details && policy.coverage_details.type || '—') + '</span></div>';
+        html += '<div class="row"><strong>Max value</strong><span>$' + (policy.coverage_details && policy.coverage_details.max_value || 0).toLocaleString() + '</span></div>';
+        html += '<div class="row"><strong>Duration</strong><span>' + (policy.coverage_details && policy.coverage_details.duration || '—') + '</span></div>';
+        html += '<div class="row"><strong>Transaction ID</strong><span>' + (policy.transaction_id || '—') + '</span></div>';
+        html += '<div class="row"><strong>Customer</strong><span>' + (policy.customer && policy.customer.email || '—') + '</span></div>';
+        html += '<div class="row"><strong>Issued</strong><span>' + (policy.recorded_at || new Date().toISOString()) + '</span></div>';
+        if (policy.tx_hash) html += '<div class="row"><strong>Blockchain TX</strong><span>' + policy.tx_hash + '</span></div>';
+        if (policy.contract_address) html += '<div class="row"><strong>Contract</strong><span>' + policy.contract_address + '</span></div>';
+        if (policy.execution_steps && policy.execution_steps.length) {
+          html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee"><strong style="font-size:11px">Contract execution steps</strong>';
+          policy.execution_steps.forEach(function (s) { html += '<div style="font-size:10px;margin-top:4px;color:#666">' + s.step + '. ' + s.action + ': ' + s.detail + '</div>'; });
+          html += '</div>';
+        }
+        html += '<p style="margin-top:12px;font-size:11px;color:#666">This insurance contract is issued and secured on blockchain. SafeCover embedded micro-insurance platform.</p>';
+        document.getElementById('insurance-contract').innerHTML = html;
+      }
+
+      document.getElementById('pay-btn').onclick = function () {
+        var btn = document.getElementById('pay-btn');
+        btn.disabled = true;
+        btn.textContent = 'Processing…';
+
+        renderItemsInvoice();
+        document.getElementById('documents-section').classList.add('show');
+        document.getElementById('documents-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        if (!selectedOption) {
+          document.getElementById('success-banner').textContent = 'Order complete. No protection selected. Items invoice generated.';
+          document.getElementById('insurance-invoice-card').style.display = 'none';
+          document.getElementById('insurance-contract-card').style.display = 'none';
+          btn.textContent = 'Paid $' + getCartValue().toFixed(2);
+          btn.disabled = false;
+          return;
+        }
+
         fetch(API + '/api/policy/bind', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             quote_id: selectedOption.quote_id,
-            transaction_id: 'ORD_' + Date.now(),
+            transaction_id: orderId,
             customer: { email: 'customer@example.com', name: 'Demo User' },
             premium_paid: selectedOption.premium,
             provider_id: selectedOption.provider_id,
@@ -296,15 +489,45 @@
         })
           .then(function (r) { return r.json(); })
           .then(function (res) {
-            var msg = document.getElementById('status-msg');
-            msg.textContent = "Protected! Policy " + res.policy_id + " with " + (res.provider_name || selectedOption.label);
-            msg.style.display = 'block';
+            document.getElementById('success-banner').textContent = 'Order complete. Policy ' + res.policy_id + ' issued with ' + (res.provider_name || selectedOption.label) + '.';
+            document.getElementById('insurance-invoice-card').style.display = 'block';
+            document.getElementById('insurance-contract-card').style.display = 'block';
+            return fetch(API + '/api/policy/' + res.policy_id);
+          })
+          .then(function (r) { return r.json(); })
+          .then(function (policy) {
+            renderInsuranceInvoice(policy, selectedOption);
+            renderInsuranceContract(policy);
           })
           .catch(function () {
-            var msg = document.getElementById('status-msg');
-            msg.textContent = 'Protection added: ' + selectedOption.label;
-            msg.style.display = 'block';
+            document.getElementById('success-banner').textContent = 'Order complete. Protection added: ' + selectedOption.label + ' (policy details unavailable).';
+            document.getElementById('insurance-invoice-card').style.display = 'block';
+            document.getElementById('insurance-contract-card').style.display = 'block';
+            renderInsuranceInvoice({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, coverage_details: {} }, selectedOption);
+            renderInsuranceContract({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, plan_id: selectedOption.plan_id, coverage_details: {}, transaction_id: orderId, customer: { email: 'customer@example.com' }, recorded_at: new Date().toISOString() });
+          })
+          .finally(function () {
+            btn.textContent = 'Paid $' + (getCartValue() + (selectedOption ? selectedOption.premium : 0)).toFixed(2);
           });
+      };
+
+      document.getElementById('btn-print-items').onclick = function () {
+        var w = window.open('', '_blank');
+        w.document.write('<html><head><title>Invoice – Items</title></head><body>' + document.getElementById('items-invoice').innerHTML + '</body></html>');
+        w.document.close();
+        w.print();
+      };
+      document.getElementById('btn-print-insurance').onclick = function () {
+        var w = window.open('', '_blank');
+        w.document.write('<html><head><title>Invoice – Insurance</title></head><body>' + document.getElementById('insurance-invoice').innerHTML + '</body></html>');
+        w.document.close();
+        w.print();
+      };
+      document.getElementById('btn-print-contract').onclick = function () {
+        var w = window.open('', '_blank');
+        w.document.write('<html><head><title>Insurance Contract</title></head><body>' + document.getElementById('insurance-contract').innerHTML + '</body></html>');
+        w.document.close();
+        w.print();
       };
 
       document.getElementById('btn-desktop').onclick = function () {
@@ -317,6 +540,9 @@
         document.getElementById('btn-mobile').classList.add('active');
         document.getElementById('btn-desktop').classList.remove('active');
       };
+
+      renderCartSidebar();
+      fetchAndRenderOptions();
     })();
   </script>
 </body>
