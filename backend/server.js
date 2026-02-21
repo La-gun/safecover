@@ -7,6 +7,7 @@ const actuarial = require('./services/actuarial');
 const blockchain = require('./services/blockchain');
 const insurer = require('./services/insurer');
 const compliance = require('./services/compliance');
+const fraud = require('./services/fraud');
 const partners = require('./services/partners');
 const { authMiddleware } = require('./middleware/auth');
 const { rateLimitQuote, rateLimitBind } = require('./middleware/rateLimit');
@@ -42,6 +43,42 @@ function getScenario(id) {
   return scenarios[id] || defaultScenario;
 }
 
+// Provider/plan lookup map for O(1) access
+const providerMap = new Map(providers.map((p) => [p.id, p]));
+const planMap = new Map();
+providers.forEach((p) => {
+  (p.plans || []).forEach((pl) => planMap.set(`${p.id}:${pl.id}`, pl));
+});
+
+function validateQuoteItems(items) {
+  if (!Array.isArray(items) || items.length === 0) return { valid: false, error: 'items must be a non-empty array' };
+  const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
+  if (invalid) return { valid: false, error: 'Each item must have a non-negative numeric value' };
+  return { valid: true };
+}
+
+function buildQuoteOptions(actuarialQuotes) {
+  return actuarialQuotes.map((q) => {
+    const provider = providerMap.get(q.provider_id);
+    const plan = planMap.get(`${q.provider_id}:${q.plan_id}`);
+    return {
+      provider_id: q.provider_id,
+      provider_name: q.provider_name,
+      provider_logo: provider?.logo || '🛡️',
+      provider_tagline: provider?.tagline || '',
+      plan_id: q.plan_id,
+      plan_name: q.plan_name,
+      premium: q.premium,
+      coverage: q.coverage,
+      benefits: plan?.benefits || [],
+      summary: plan?.summary || '',
+      terms_url: provider?.terms_url || '/terms.html',
+      quote_id: `QTY_${q.provider_id}_${q.plan_id}_${Date.now()}`,
+      actuarial: q.actuarial,
+    };
+  });
+}
+
 app.get('/api/providers', (req, res) => res.json(providers));
 
 app.get('/api/compliance/jurisdictions', (req, res) => {
@@ -73,36 +110,15 @@ app.get('/api/partners', authMiddleware, (req, res) => {
 app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
-    if (!Array.isArray(items) || items.length === 0) {
-      return err(res, 400, 'items must be a non-empty array', 'INVALID_ITEMS');
-    }
-    const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
-    if (invalid) return err(res, 400, 'Each item must have a non-negative numeric value', 'INVALID_ITEM_VALUE');
+    const validation = validateQuoteItems(items);
+    if (!validation.valid) return err(res, 400, validation.error, 'INVALID_ITEMS');
 
     const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
     if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
 
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
-
-    const options = actuarialQuotes.map((q) => {
-      const provider = providers.find((p) => p.id === q.provider_id);
-      return {
-        provider_id: q.provider_id,
-        provider_name: q.provider_name,
-        provider_logo: provider?.logo || '🛡️',
-        provider_tagline: provider?.tagline || '',
-        plan_id: q.plan_id,
-        plan_name: q.plan_name,
-        premium: q.premium,
-        coverage: q.coverage,
-        benefits: provider?.plans?.find((p) => p.id === q.plan_id)?.benefits || [],
-        summary: provider?.plans?.find((p) => p.id === q.plan_id)?.summary || '',
-        terms_url: provider?.terms_url || '/terms.html',
-        quote_id: `QTY_${q.provider_id}_${q.plan_id}_${Date.now()}`,
-        actuarial: q.actuarial,
-      };
-    });
+    const options = buildQuoteOptions(actuarialQuotes);
 
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
@@ -161,11 +177,8 @@ function aiSuggestScenario(items) {
 app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
-    if (!Array.isArray(items) || items.length === 0) {
-      return err(res, 400, 'items must be a non-empty array', 'INVALID_ITEMS');
-    }
-    const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
-    if (invalid) return err(res, 400, 'Each item must have a non-negative numeric value', 'INVALID_ITEM_VALUE');
+    const validation = validateQuoteItems(items);
+    if (!validation.valid) return err(res, 400, validation.error, 'INVALID_ITEMS');
 
     const suggestedScenario = scenarioId || aiSuggestScenario(items);
     const comp = compliance.complianceCheck({ jurisdiction, scenario: suggestedScenario });
@@ -173,34 +186,14 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
 
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, suggestedScenario);
-
-    const options = actuarialQuotes.map((q) => {
-      const provider = providers.find((p) => p.id === q.provider_id);
-      return {
-        provider_id: q.provider_id,
-        provider_name: q.provider_name,
-        provider_logo: provider?.logo || '🛡️',
-        provider_tagline: provider?.tagline || '',
-        plan_id: q.plan_id,
-        plan_name: q.plan_name,
-        premium: q.premium,
-        coverage: q.coverage,
-        benefits: provider?.plans?.find((p) => p.id === q.plan_id)?.benefits || [],
-        summary: provider?.plans?.find((p) => p.id === q.plan_id)?.summary || '',
-        terms_url: provider?.terms_url || '/terms.html',
-        quote_id: `QTY_${q.provider_id}_${q.plan_id}_${Date.now()}`,
-        actuarial: q.actuarial,
-      };
-    });
-
+    const options = buildQuoteOptions(actuarialQuotes);
     const ranked = aiRateOptions(options, value);
-    const recommended = ranked[0] || null;
 
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
       cart_value: value,
       options: ranked,
-      recommended,
+      recommended: ranked[0] || null,
       suggested_scenario: suggestedScenario,
       jurisdiction: comp.jurisdiction,
       disclosures: comp.disclosures || compliance.getDisclosures(comp.jurisdiction),
@@ -214,11 +207,8 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
 app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
-    if (!Array.isArray(items) || items.length === 0) {
-      return err(res, 400, 'items must be a non-empty array', 'INVALID_ITEMS');
-    }
-    const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
-    if (invalid) return err(res, 400, 'Each item must have a non-negative numeric value', 'INVALID_ITEM_VALUE');
+    const validation = validateQuoteItems(items);
+    if (!validation.valid) return err(res, 400, validation.error, 'INVALID_ITEMS');
 
     const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
     if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
@@ -260,14 +250,25 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
     const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
     if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
 
+    const existingPolicies = store.policies();
+    const fraudResult = fraud.evaluateBind({
+      customer,
+      transaction_id,
+      quote_id,
+      existingPolicies,
+    });
+    if (fraudResult.decision === 'BLOCK') {
+      return err(res, 403, 'Transaction blocked by fraud rules', 'FRAUD_BLOCK');
+    }
+
     const premium = parseFloat(premium_paid);
     if (isNaN(premium) || premium < 0) {
       return err(res, 400, 'premium_paid must be a non-negative number', 'INVALID_PREMIUM');
     }
 
     const scenario = getScenario(scenarioId);
-    const provider = providers.find((p) => p.id === provider_id);
-    const plan = provider?.plans?.find((p) => p.id === plan_id);
+    const provider = providerMap.get(provider_id);
+    const plan = planMap.get(`${provider_id}:${plan_id}`);
     const coverage = plan?.coverage ?? scenario.max_value;
     const commissionRate = provider?.commission_rate ?? 0.15;
     const commission = parseFloat((premium * commissionRate).toFixed(2));
@@ -288,6 +289,9 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       quote_id: quote_id,
       scenario: scenarioId || 'retail',
       jurisdiction: comp.jurisdiction || null,
+      fraud_decision: fraudResult.decision,
+      fraud_score: fraudResult.score,
+      fraud_reasons: fraudResult.reasons,
       coverage_details: {
         type: scenario.coverage_type,
         max_value: coverage,
@@ -305,7 +309,9 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
     store.savePolicy(policy);
     store.recordAnalytics({ type: 'bind', policy_id: policyId, premium, commission, partner_id: req.partnerId });
 
-    insurer.forwardToInsurer(policy).catch(() => {});
+    insurer.forwardToInsurer(policy).catch((e) => {
+      console.error('[Insurer] Forward failed for policy', policy.policy_id, e);
+    });
 
     res.json({
       policy_id: policyId,
@@ -318,6 +324,8 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       execution_steps: bcResult.execution_steps,
       constructor_args: bcResult.constructor_args,
       coverage_details: policy.coverage_details,
+      fraud_decision: fraudResult.decision,
+      fraud_score: fraudResult.score,
     });
   } catch (e) {
     console.error('Policy bind error:', e);
@@ -423,7 +431,8 @@ app.get('/api/claims', authMiddleware, (req, res) => {
       const policyIds = store.policies().filter((p) => p.customer?.email === email).map((p) => p.policy_id);
       claims = claims.filter((c) => policyIds.includes(c.policy_id));
     }
-    claims = claims.slice(0, parseInt(limit, 10)).reverse();
+    const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    claims = claims.slice(0, safeLimit).reverse();
     res.json({ claims });
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
@@ -471,7 +480,8 @@ app.get('/api/policies', authMiddleware, (req, res) => {
     const { email, limit = 50 } = req.query;
     let policies = store.policies();
     if (email) policies = policies.filter((p) => p.customer?.email === email);
-    policies = policies.slice(-limit).reverse();
+    const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    policies = policies.slice(-safeLimit).reverse();
     res.json({ policies });
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
@@ -514,7 +524,13 @@ app.post('/api/webhook', (req, res) => {
   if (!req.body || typeof req.body !== 'object') {
     return err(res, 400, 'Request body must be a JSON object', 'INVALID_BODY');
   }
-  console.log('Webhook:', req.body);
+  const bodyStr = JSON.stringify(req.body);
+  if (bodyStr.length > 64 * 1024) {
+    return err(res, 413, 'Webhook payload too large', 'PAYLOAD_TOO_LARGE');
+  }
+  // Log type/event only; avoid logging full payload (may contain PII)
+  const eventType = req.body.event || req.body.type || 'unknown';
+  console.log('Webhook received:', eventType);
   res.sendStatus(200);
 });
 
@@ -544,7 +560,13 @@ app.get('/api/contract/simulate', authMiddleware, (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.redirect('/checkout-ux-demo.html'));
+app.get('/', (req, res) => {
+  const scenario = process.env.SCENARIO;
+  if (scenario) {
+    return res.redirect(`/scenarios/scenario-${scenario}.html`);
+  }
+  res.redirect('/checkout-ux-demo.html');
+});
 
 app.get('/api/scenarios', (req, res) => {
   res.json(Object.values(scenarios));

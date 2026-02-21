@@ -153,7 +153,7 @@ function generateCompetitiveQuotes(items, scenarioId = 'retail') {
   const results = [];
 
   providers.forEach((provider) => {
-    provider.plans.forEach((plan) => {
+    (provider.plans || []).forEach((plan) => {
       const act = quotePlan(provider, plan, insuredValue, scenarioId);
       // Blend: 70% actuarial + 30% provider base rate (keeps provider differentiation)
       const blended = act.gross_premium * 0.7 + insuredValue * (plan.premium_rate || 0.003) * 0.3;
