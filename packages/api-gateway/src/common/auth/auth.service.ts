@@ -69,12 +69,15 @@ export class AuthService {
     };
   }
 
-  private parseScopes(scopes: string): string[] {
+  private parseScopes(scopes: string | string[]): string[] {
+    if (Array.isArray(scopes)) return scopes;
+    if (!scopes) return [];
+    // Back-compat: some seeds stored JSON stringified array
     try {
       const parsed = JSON.parse(scopes);
       return Array.isArray(parsed) ? parsed : [scopes];
     } catch {
-      return scopes ? [scopes] : [];
+      return [scopes];
     }
   }
 }

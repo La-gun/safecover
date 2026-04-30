@@ -1,0 +1,328 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductSegment {
+  ASSET
+  TRAVEL
+  HEALTH_LIFE
+  AGRI
+  FINANCIAL
+  EVENT_LIFESTYLE
+}
+
+enum QuoteStatus {
+  CREATED
+  EXPIRED
+  CONVERTED
+}
+
+enum PolicyStatus {
+  ISSUED
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum FraudDecision {
+  APPROVE
+  HOLD
+  BLOCK
+}
+
+enum ClaimStatus {
+  FNOL
+  RECEIVED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PAID
+  CLOSED
+}
+
+enum ComplaintStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum Channel {
+  POS
+  WEB
+  APP
+  USSD
+}
+
+model Partner {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  stores       Store[]
+  oauthClients PartnerOAuthClient[]
+  quotes       Quote[]
+  policies     Policy[]
+  claims       Claim[]
+  complaints   Complaint[]
+}
+
+model PartnerOAuthClient {
+  id         String   @id @default(cuid())
+  partnerId  String
+  clientId   String   @unique
+  clientName String
+  clientHash String   // store hash of secret, not secret itself
+  scopes     String[]
+  createdAt  DateTime @default(now())
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  partnerId String
+  storeId   String   @unique // external store_id like STORE-ABC123
+  name      String
+  city      String?
+  country   String   @default("NG")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  quotes    Quote[]
+  policies  Policy[]
+  claims    Claim[]
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  externalId String?
+  phone      String?
+  email      String?
+
+  @@index([externalId])
+  @@index([phone])
+  @@index([email])
+  firstName     String?
+  lastName      String?
+  kycLevel      String?  // minimal in MVP
+  createdAt     DateTime @default(now())
+  quotes        Quote[]
+  policies      Policy[]
+  claims        Claim[]
+  complaints    Complaint[]
+}
+
+model ProductModule {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  name            String
+  segment         ProductSegment
+  isActive        Boolean        @default(true)
+  currency        String         @default("NGN")
+  sumInsuredCap   Int            @default(2000000) // ₦2,000,000
+  coolingOffDays  Int            @default(7)
+  disclosureMd    String         // 1–2 page summary template (markdown)
+  rulesJson       Json           // limits/exclusions/excess bands etc
+  createdAt       DateTime      @default(now())
+  quotes          Quote[]
+  policies        Policy[]
+  reinsuranceTags String[]       // for bordereaux mapping
+}
+
+model Quote {
+  id              String       @id @default(cuid())
+  quoteCode       String       @unique // Q-2026-0021 style
+  partnerId       String
+  storeId         String
+  customerId      String?
+  productModuleId String
+  transactionId  String
+  channel         Channel
+  timestamp       DateTime
+  status          QuoteStatus  @default(CREATED)
+  premiumTotal    Int
+  sumInsuredTotal Int
+  disclosures     Json
+  idempotencyKey  String?
+
+  @@index([idempotencyKey])
+  @@index([partnerId, idempotencyKey, transactionId])
+  createdAt       DateTime     @default(now())
+  expiresAt       DateTime
+  items           QuoteItem[]
+  policies        Policy[]
+
+  partner       Partner       @relation(fields: [partnerId], references: [id])
+  store         Store         @relation(fields: [storeId], references: [id])
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  productModule ProductModule @relation(fields: [productModuleId], references: [id])
+}
+
+model QuoteItem {
+  id         String  @id @default(cuid())
+  quoteId    String
+  sku        String
+  category   String
+  price      Int
+  serialHash String
+  quote      Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([serialHash])
+}
+
+model Policy {
+  id              String       @id @default(cuid())
+  policyNumber    String       @unique
+  partnerId       String
+  storeId         String
+  customerId      String?
+  productModuleId String
+  quoteId         String?
+  status          PolicyStatus @default(ISSUED)
+  premiumTotal    Int
+  sumInsuredTotal Int
+  paymentRef      String       @unique
+  certificateUrl  String?
+  issuedAt        DateTime     @default(now())
+  startsAt        DateTime
+  endsAt          DateTime
+  coolingOffEndsAt DateTime
+  fraudDecision   FraudDecision @default(HOLD)
+  fraudScore      Int           @default(0)
+  createdAt       DateTime     @default(now())
+  items           PolicyItem[]
+  claims          Claim[]
+  complaints      Complaint[]
+
+  partner       Partner       @relation(fields: [partnerId], references: [id])
+  store         Store         @relation(fields: [storeId], references: [id])
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  productModule ProductModule @relation(fields: [productModuleId], references: [id])
+  quote         Quote?        @relation(fields: [quoteId], references: [id])
+}
+
+model PolicyItem {
+  id         String  @id @default(cuid())
+  policyId   String
+  sku        String
+  category   String
+  price      Int
+  serialHash String
+  claimCount Int     @default(0)
+  policy     Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([serialHash])
+}
+
+model Claim {
+  id            String       @id @default(cuid())
+  claimNumber   String       @unique
+  partnerId     String
+  storeId       String
+  customerId    String?
+  policyId      String
+  status        ClaimStatus  @default(FNOL)
+  lossType      String
+  lossDate      DateTime
+  reportedAt    DateTime     @default(now())
+  city          String?
+  country       String       @default("NG")
+  amountClaimed Int?
+  fraudDecision FraudDecision @default(HOLD)
+  fraudScore    Int          @default(0)
+  documents     ClaimDocument[]
+  createdAt     DateTime     @default(now())
+
+  partner   Partner   @relation(fields: [partnerId], references: [id])
+  store     Store     @relation(fields: [storeId], references: [id])
+  policy    Policy    @relation(fields: [policyId], references: [id])
+  customer  Customer? @relation(fields: [customerId], references: [id])
+}
+
+model ClaimDocument {
+  id        String   @id @default(cuid())
+  claimId   String
+  docType   String
+  filename  String
+  mimeType  String
+  sizeBytes Int
+  storageRef String  // placeholder (S3 key etc)
+  createdAt DateTime @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+model Complaint {
+  id          String          @id @default(cuid())
+  complaintRef String         @unique
+  customerId  String?
+  partnerId   String?
+  policyId    String?
+  status      ComplaintStatus @default(OPEN)
+  channel     Channel
+  message     String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+  partner  Partner?  @relation(fields: [partnerId], references: [id])
+  policy   Policy?   @relation(fields: [policyId], references: [id])
+}
+
+model FraudScore {
+  id         String        @id @default(cuid())
+  entityType String        // QUOTE | BIND | CLAIM
+  entityId   String
+
+  @@index([entityId])
+  decision   FraudDecision
+  score      Int
+  reasons    String[]
+  createdAt  DateTime      @default(now())
+}
+
+model AuditEvent {
+  id            String   @id @default(cuid())
+  actorType     String   // PARTNER | ADMIN | SYSTEM
+  actorId       String?
+  partnerCode   String?
+  entityType    String
+  entityId      String
+  eventType     String
+  correlationId String?
+  payload       Json
+  prevHash      String?
+  eventHash     String
+
+  @@index([correlationId])
+  @@index([eventHash])
+  @@index([entityType, entityId, createdAt])
+  createdAt     DateTime @default(now())
+}
+
+model ReinsuranceTreaty {
+  id            String    @id @default(cuid())
+  name          String
+  segment       ProductSegment
+  treatyType    String    // QUOTA_SHARE | STOP_LOSS | XOL
+  configJson    Json
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model BordereauxExport {
+  id         String         @id @default(cuid())
+  period     String         // "2026-02"
+  segment    ProductSegment
+  format     String         // CSV | JSON
+  storageRef String
+  createdAt  DateTime       @default(now())
+}

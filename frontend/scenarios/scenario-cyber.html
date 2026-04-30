@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Cyber & Digital | Data Breach Protection</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); color: #312e81; }
+    .scenario-header {
+      background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(67,56,202,0.3);
+    }
+    .scenario-header h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .scenario-header .badge { display: inline-block; background: rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px; }
+    .checkout-container { max-width: 1000px; margin: 24px auto; padding: 0 20px; }
+    .checkout-frame { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; display: flex; min-height: 520px; }
+    .checkout-main { flex: 1; padding: 28px; }
+    .checkout-sidebar { width: 360px; padding: 28px; background: #eef2ff; border-left: 1px solid #a5b4fc; }
+    .section-title { font-size: 17px; font-weight: 600; margin: 0 0 16px; color: #312e81; }
+    .cart-item { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #c7d2fe; align-items: center; }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item-img { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #e0e7ff; flex-shrink: 0; }
+    .cart-item-img img { width: 100%; height: 100%; object-fit: cover; }
+    .cart-item-details { flex: 1; min-width: 0; }
+    .cart-item-name { font-weight: 600; font-size: 14px; }
+    .cart-item-meta { font-size: 12px; color: #4338ca; margin-top: 2px; }
+    .cart-item-price { font-weight: 700; font-size: 15px; color: #312e81; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: #4338ca; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 12px; border: 1px solid #a5b4fc; border-radius: 8px; font-size: 14px; }
+    .protection-box { margin-top: 24px; padding: 20px; background: #e0e7ff; border: 2px solid #6366f1; border-radius: 10px; }
+    .protection-box h3 { margin: 0 0 12px; font-size: 15px; color: #4338ca; }
+    .protection-box ul { margin: 0 0 16px; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #312e81; }
+    .protection-box label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .protection-box input[type="checkbox"] { width: 20px; height: 20px; accent-color: #6366f1; }
+    .order-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; }
+    .order-row.total { font-size: 18px; font-weight: 700; border-top: 2px solid #a5b4fc; margin-top: 12px; padding-top: 16px; }
+    .pay-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 20px; }
+    .pay-btn:hover { opacity: 0.95; }
+    .success-banner { background: #dcfce7; color: #166534; padding: 20px; border-radius: 10px; margin-top: 24px; font-weight: 500; display: none; }
+    .success-banner.show { display: block; }
+    .port-badge { position: fixed; top: 12px; right: 12px; background: #4338ca; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <span class="port-badge">Port 3006 – Cyber</span>
+  <div class="scenario-header">
+    <h1>🔒 Cyber & Digital Services</h1>
+    <p>VPN + identity monitoring with breach protection</p>
+    <span class="badge">Data breach protection • Up to $1,000 • 12 months</span>
+  </div>
+  <div class="checkout-container">
+    <div class="checkout-frame">
+      <div class="checkout-main">
+        <h2 class="section-title">Account & billing</h2>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" value="alex.chen@company.io" readonly>
+        </div>
+        <div class="form-group">
+          <label>Billing cycle</label>
+          <input type="text" value="Annual (save 40%)" readonly>
+        </div>
+        <div class="form-group">
+          <label>Payment method</label>
+          <input type="text" value="•••• •••• •••• 4242" readonly>
+        </div>
+
+        <div class="protection-box">
+          <h3>✓ Add SafeCover cyber protection</h3>
+          <ul>
+            <li>Identity theft monitoring</li>
+            <li>Data breach response support</li>
+            <li>Up to $1,000 recovery</li>
+          </ul>
+          <label><input type="checkbox" id="add-protection"> Add protection for <strong id="premium-display">$—</strong></label>
+        </div>
+      </div>
+      <div class="checkout-sidebar">
+        <h2 class="section-title">Subscription summary</h2>
+        <div id="cart-items"></div>
+        <div class="order-row"><span>Subtotal</span><span id="subtotal">$0</span></div>
+        <div class="order-row" id="protection-row" style="display:none"><span>Cyber protection</span><span id="protection-amount">$0</span></div>
+        <div class="order-row total"><span>Total (annual)</span><span id="total">$0</span></div>
+        <button class="pay-btn" id="pay-btn">Subscribe</button>
+        <div class="success-banner" id="success-banner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var SCENARIO_ID = 'cyber';
+    var cartItems = [
+      { id: '1', name: 'CyberShield Pro VPN', qty: 1, price: 89, image: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=128&h=128&fit=crop' },
+      { id: '2', name: 'Family plan add-on (5 devices)', qty: 1, price: 29, image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=128&h=128&fit=crop' },
+      { id: '3', name: 'Dark web monitoring', qty: 1, price: 19, image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=128&h=128&fit=crop' },
+      { id: '4', name: 'Password manager premium', qty: 1, price: 24, image: 'https://images.unsplash.com/photo-1614064548230-9f2f16a34ccf?w=128&h=128&fit=crop' },
+      { id: '5', name: 'Secure backup (500GB)', qty: 1, price: 49, image: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=128&h=128&fit=crop' }
+    ];
+    var API = window.location.origin;
+    var selectedOption = null;
+
+    function getCartValue() { return cartItems.reduce(function(s,i){ return s + i.price * (i.qty||1); }, 0); }
+
+    function renderCart() {
+      var html = '';
+      cartItems.forEach(function(i) {
+        var total = i.price * (i.qty||1);
+        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">12 months</div></div>';
+        html += '<div class="cart-item-price">$' + total.toFixed(2) + '</div></div>';
+      });
+      document.getElementById('cart-items').innerHTML = html;
+      var subtotal = getCartValue();
+      document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('total').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('pay-btn').textContent = 'Subscribe $' + subtotal.toFixed(2);
+    }
+
+    function fetchQuote() {
+      var items = cartItems.map(function(i){ return { value: i.price * (i.qty||1), name: i.name }; });
+      fetch(API + '/api/quote/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        body: JSON.stringify({ items: items, scenario: SCENARIO_ID, jurisdiction: 'US' })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var opt = data.recommended || (data.options && data.options[0]);
+          if (opt) { document.getElementById('premium-display').textContent = '$' + opt.premium.toFixed(2); selectedOption = { premium: opt.premium, quote_id: opt.quote_id, provider_id: opt.provider_id, plan_id: opt.plan_id }; }
+        })
+        .catch(function(){ document.getElementById('premium-display').textContent = '$9.50'; selectedOption = { premium: 9.50, quote_id: 'QTY'+Date.now(), provider_id: 'safecover', plan_id: 'standard' }; });
+    }
+
+    document.getElementById('add-protection').onchange = function() {
+      var cb = this;
+      var subtotal = getCartValue();
+      var row = document.getElementById('protection-row');
+      var totalEl = document.getElementById('total');
+      var payBtn = document.getElementById('pay-btn');
+      if (cb.checked && selectedOption) {
+        row.style.display = 'flex';
+        document.getElementById('protection-amount').textContent = '$' + selectedOption.premium.toFixed(2);
+        var total = subtotal + selectedOption.premium;
+        totalEl.textContent = '$' + total.toFixed(2);
+        payBtn.textContent = 'Subscribe $' + total.toFixed(2);
+      } else {
+        row.style.display = 'none';
+        totalEl.textContent = '$' + subtotal.toFixed(2);
+        payBtn.textContent = 'Subscribe $' + subtotal.toFixed(2);
+      }
+    };
+
+    document.getElementById('pay-btn').onclick = function() {
+      var btn = this;
+      var cb = document.getElementById('add-protection');
+      var subtotal = getCartValue();
+      btn.disabled = true;
+      btn.textContent = 'Processing…';
+      if (!cb.checked || !selectedOption) {
+        document.getElementById('success-banner').textContent = 'Subscription active! Total: $' + subtotal.toFixed(2);
+        document.getElementById('success-banner').classList.add('show');
+        btn.textContent = 'Paid $' + subtotal.toFixed(2);
+        btn.disabled = false;
+        return;
+      }
+      var orderId = 'CBR_' + Date.now() + '_' + SCENARIO_ID;
+      fetch(API + '/api/policy/bind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        body: JSON.stringify({
+          quote_id: selectedOption.quote_id,
+          transaction_id: orderId,
+          customer: { email: 'alex.chen@company.io', name: 'Alex Chen' },
+          premium_paid: selectedOption.premium,
+          provider_id: selectedOption.provider_id,
+          plan_id: selectedOption.plan_id,
+          scenario: SCENARIO_ID,
+          jurisdiction: 'US'
+        })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          document.getElementById('success-banner').textContent = 'Subscription active! Policy ' + res.policy_id + ' issued. Cyber protection up to $1,000.';
+          document.getElementById('success-banner').classList.add('show');
+          btn.textContent = 'Paid $' + (subtotal + selectedOption.premium).toFixed(2);
+        })
+        .catch(function(){
+          document.getElementById('success-banner').textContent = 'Subscription active! Cyber protection added.';
+          document.getElementById('success-banner').classList.add('show');
+          btn.textContent = 'Paid $' + (subtotal + selectedOption.premium).toFixed(2);
+        })
+        .finally(function(){ btn.disabled = false; });
+    };
+
+    renderCart();
+    fetchQuote();
+  </script>
+</body>
+</html>

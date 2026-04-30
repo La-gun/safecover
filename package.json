@@ -1,0 +1,16 @@
+{
+  "name": "safecover",
+  "version": "1.0.0",
+  "description": "SafeCover embedded microinsurance platform",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "cd backend && node server.js",
+    "scenarios": "node scripts/launch-all-scenarios.js",
+    "api-gateway:dev": "npm run dev -w api-gateway",
+    "api-gateway:build": "npm run build -w api-gateway",
+    "api-gateway:start": "npm run start -w api-gateway"
+  }
+}

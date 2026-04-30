@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Jewellery & Watch | UK IPID-Compliant Insurance</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+    .scenario-header {
+      background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(180,83,9,0.3);
+    }
+    .scenario-header h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .scenario-header .badge { display: inline-block; background: rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px; }
+    .checkout-container { max-width: 1000px; margin: 24px auto; padding: 0 20px; }
+    .checkout-frame { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; display: flex; min-height: 520px; }
+    .checkout-main { flex: 1; padding: 28px; }
+    .checkout-sidebar { width: 360px; padding: 28px; background: #fffbeb; border-left: 1px solid #fcd34d; }
+    .section-title { font-size: 17px; font-weight: 600; margin: 0 0 16px; color: #92400e; }
+    .cart-item { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #fde68a; align-items: center; }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item-img { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #fef3c7; flex-shrink: 0; }
+    .cart-item-img img { width: 100%; height: 100%; object-fit: cover; }
+    .cart-item-details { flex: 1; min-width: 0; }
+    .cart-item-name { font-weight: 600; font-size: 14px; }
+    .cart-item-meta { font-size: 12px; color: #b45309; margin-top: 2px; }
+    .cart-item-price { font-weight: 700; font-size: 15px; color: #92400e; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: #b45309; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 12px; border: 1px solid #fcd34d; border-radius: 8px; font-size: 14px; }
+    .protection-box { margin-top: 24px; padding: 20px; background: #fffbeb; border: 2px solid #d97706; border-radius: 10px; }
+    .protection-box h3 { margin: 0 0 12px; font-size: 15px; color: #92400e; }
+    .protection-box ul { margin: 0 0 16px; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #78350f; }
+    .protection-box label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .protection-box input[type="checkbox"] { width: 20px; height: 20px; accent-color: #d97706; }
+    .protection-box .ipid-note { font-size: 11px; color: #78716c; margin-top: 8px; }
+    .order-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; }
+    .order-row.total { font-size: 18px; font-weight: 700; border-top: 2px solid #fcd34d; margin-top: 12px; padding-top: 16px; }
+    .pay-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #b45309 0%, #d97706 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 20px; }
+    .pay-btn:hover { opacity: 0.95; }
+    .success-banner { background: #dcfce7; color: #166534; padding: 20px; border-radius: 10px; margin-top: 24px; font-weight: 500; display: none; }
+    .success-banner.show { display: block; }
+    .success-banner a { color: #166534; text-decoration: underline; }
+    .port-badge { position: fixed; top: 12px; right: 12px; background: #b45309; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <span class="port-badge">Jewellery – UK IPID</span>
+  <div class="scenario-header">
+    <h1>💎 Jewellery & Watch Insurance</h1>
+    <p>All Risks cover with UK IPID-compliant certificate</p>
+    <span class="badge">Accidental damage • Theft • Worldwide • Up to £25,000 • 12 months</span>
+  </div>
+  <div class="checkout-container">
+    <div class="checkout-frame">
+      <div class="checkout-main">
+        <h2 class="section-title">Delivery & valuation</h2>
+        <div class="form-group">
+          <label>Delivery address</label>
+          <input type="text" value="42 Bond Street, London W1S 2YH" readonly>
+        </div>
+        <div class="form-group">
+          <label>Valuation</label>
+          <input type="text" value="Professional valuation certificate included" readonly>
+        </div>
+
+        <div class="protection-box">
+          <h3>✓ Add SafeCover Jewellery & Watch Insurance</h3>
+          <ul>
+            <li>Accidental damage, theft (with police report), mechanical breakdown (watches)</li>
+            <li>Worldwide cover – insured anywhere</li>
+            <li>UK IPID-compliant certificate (FCA/IDD Annex III)</li>
+            <li>Up to £25,000 coverage for 12 months</li>
+          </ul>
+          <p class="ipid-note">Your policy includes an Insurance Product Information Document (IPID) summarising cover in plain language per UK regulations.</p>
+          <label><input type="checkbox" id="add-protection"> Add protection for <strong id="premium-display">£—</strong></label>
+        </div>
+      </div>
+      <div class="checkout-sidebar">
+        <h2 class="section-title">Order summary</h2>
+        <div id="cart-items"></div>
+        <div class="order-row"><span>Subtotal</span><span id="subtotal">£0</span></div>
+        <div class="order-row" id="protection-row" style="display:none"><span>Jewellery insurance</span><span id="protection-amount">£0</span></div>
+        <div class="order-row"><span>Delivery</span><span>Free</span></div>
+        <div class="order-row total"><span>Total</span><span id="total">£0</span></div>
+        <button class="pay-btn" id="pay-btn">Checkout</button>
+        <div class="success-banner" id="success-banner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var SCENARIO_ID = 'jewellery';
+    var cartItems = [
+      { id: '1', name: '10-carat diamond engagement ring', qty: 1, price: 12500, image: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=128&h=128&fit=crop' },
+      { id: '2', name: 'Rolex Submariner Date', qty: 1, price: 8950, image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=128&h=128&fit=crop' },
+      { id: '3', name: 'Cartier Love bracelet', qty: 1, price: 6200, image: 'https://images.unsplash.com/photo-1611652022419-a9419f74343a?w=128&h=128&fit=crop' },
+      { id: '4', name: 'Pearl necklace', qty: 1, price: 1850, image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=128&h=128&fit=crop' }
+    ];
+    var API = window.location.origin;
+    var selectedOption = null;
+
+    function getCartValue() { return cartItems.reduce(function(s,i){ return s + i.price * (i.qty||1); }, 0); }
+
+    function renderCart() {
+      var html = '';
+      cartItems.forEach(function(i) {
+        var total = i.price * (i.qty||1);
+        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">Qty: ' + (i.qty||1) + '</div></div>';
+        html += '<div class="cart-item-price">£' + total.toLocaleString() + '</div></div>';
+      });
+      document.getElementById('cart-items').innerHTML = html;
+      var subtotal = getCartValue();
+      document.getElementById('subtotal').textContent = '£' + subtotal.toLocaleString();
+      document.getElementById('total').textContent = '£' + subtotal.toLocaleString();
+      document.getElementById('pay-btn').textContent = 'Checkout £' + subtotal.toLocaleString();
+    }
+
+    function fetchQuote() {
+      var items = cartItems.map(function(i){ return { value: i.price * (i.qty||1), name: i.name }; });
+      fetch(API + '/api/quote/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        body: JSON.stringify({ items: items, scenario: SCENARIO_ID, jurisdiction: 'UK' })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var opt = data.recommended || (data.options && data.options[0]);
+          if (opt) { document.getElementById('premium-display').textContent = '£' + opt.premium.toFixed(2); selectedOption = { premium: opt.premium, quote_id: opt.quote_id, provider_id: opt.provider_id, plan_id: opt.plan_id }; }
+        })
+        .catch(function(){ document.getElementById('premium-display').textContent = '£625.00'; selectedOption = { premium: 625, quote_id: 'QTY'+Date.now(), provider_id: 'safecover', plan_id: 'standard' }; });
+    }
+
+    document.getElementById('add-protection').onchange = function() {
+      var cb = this;
+      var subtotal = getCartValue();
+      var row = document.getElementById('protection-row');
+      var totalEl = document.getElementById('total');
+      var payBtn = document.getElementById('pay-btn');
+      if (cb.checked && selectedOption) {
+        row.style.display = 'flex';
+        document.getElementById('protection-amount').textContent = '£' + selectedOption.premium.toFixed(2);
+        var total = subtotal + selectedOption.premium;
+        totalEl.textContent = '£' + total.toLocaleString();
+        payBtn.textContent = 'Checkout £' + total.toLocaleString();
+      } else {
+        row.style.display = 'none';
+        totalEl.textContent = '£' + subtotal.toLocaleString();
+        payBtn.textContent = 'Checkout £' + subtotal.toLocaleString();
+      }
+    };
+
+    document.getElementById('pay-btn').onclick = function() {
+      var btn = this;
+      var cb = document.getElementById('add-protection');
+      var subtotal = getCartValue();
+      btn.disabled = true;
+      btn.textContent = 'Processing…';
+      if (!cb.checked || !selectedOption) {
+        document.getElementById('success-banner').textContent = 'Order complete! Total: £' + subtotal.toLocaleString();
+        document.getElementById('success-banner').classList.add('show');
+        btn.textContent = 'Paid £' + subtotal.toLocaleString();
+        btn.disabled = false;
+        return;
+      }
+      var orderId = 'JWL_' + Date.now() + '_' + SCENARIO_ID;
+      fetch(API + '/api/policy/bind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        body: JSON.stringify({
+          quote_id: selectedOption.quote_id,
+          transaction_id: orderId,
+          customer: { email: 'customer@example.co.uk', name: 'Emma Wilson' },
+          premium_paid: selectedOption.premium,
+          provider_id: selectedOption.provider_id,
+          plan_id: selectedOption.plan_id,
+          scenario: SCENARIO_ID,
+          jurisdiction: 'UK'
+        })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          var msg = 'Order complete! Policy ' + res.policy_id + ' issued. Jewellery protected up to £25,000 for 12 months.';
+          if (res.certificate_url) msg += ' <a href="' + res.certificate_url + '" target="_blank" rel="noopener">View IPID Certificate</a>';
+          document.getElementById('success-banner').innerHTML = msg;
+          document.getElementById('success-banner').classList.add('show');
+          btn.textContent = 'Paid £' + (subtotal + selectedOption.premium).toLocaleString();
+        })
+        .catch(function(){
+          document.getElementById('success-banner').textContent = 'Order complete! Jewellery insurance added.';
+          document.getElementById('success-banner').classList.add('show');
+          btn.textContent = 'Paid £' + (subtotal + selectedOption.premium).toLocaleString();
+        })
+        .finally(function(){ btn.disabled = false; });
+    };
+
+    renderCart();
+    fetchQuote();
+  </script>
+</body>
+</html>

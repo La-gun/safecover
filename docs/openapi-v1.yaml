@@ -1,0 +1,802 @@
+openapi: 3.0.3
+info:
+  title: SafeCover API
+  version: "1.0.0"
+  description: >
+    SafeCover checkout-agnostic API (v1). This contract unifies multi-offer quoting
+    (compare/rate) with OAuth client-credentials auth, idempotency, polling, and webhooks.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: products
+  - name: quotes
+  - name: policies
+  - name: webhooks
+  - name: events
+  - name: claims
+
+security:
+  - bearerAuth: []
+
+paths:
+  /oauth/token:
+    post:
+      tags: [auth]
+      summary: OAuth token (client_credentials)
+      description: Exchange partner client credentials for a Bearer token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthTokenRequest"
+      responses:
+        "200":
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthTokenResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /products:
+    get:
+      tags: [products]
+      summary: List available products
+      responses:
+        "200":
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products]
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Product"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /jurisdictions:
+    get:
+      tags: [products]
+      summary: List supported jurisdictions
+      responses:
+        "200":
+          description: Jurisdictions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [supported, default]
+                properties:
+                  supported:
+                    type: array
+                    items: { type: string }
+                  default:
+                    type: string
+
+  /quotes:
+    post:
+      tags: [quotes]
+      summary: Create a quote (single/rate/compare)
+      description: >
+        Creates a DB-backed quote and returns one or more offers. Supports idempotent retries
+        via Idempotency-Key. Integrators may poll using GET /quotes/{quote_id} or subscribe to webhooks.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
+      responses:
+        "201":
+          description: Quote created
+          headers:
+            X-Correlation-Id:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateQuoteResponse"
+        "200":
+          description: Quote replayed (idempotency hit)
+          headers:
+            X-Correlation-Id:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateQuoteResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /quotes/{quote_id}:
+    get:
+      tags: [quotes]
+      summary: Get a quote (polling)
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Quote
+          headers:
+            X-Correlation-Id:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [quote]
+                properties:
+                  quote:
+                    $ref: "#/components/schemas/Quote"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /quotes/{quote_id}/select:
+    post:
+      tags: [quotes]
+      summary: Select an offer for a quote (optional)
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [offer_id]
+              properties:
+                offer_id:
+                  type: string
+      responses:
+        "200":
+          description: Offer selected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [quote_id, selected_offer_id]
+                properties:
+                  quote_id: { type: string }
+                  selected_offer_id: { type: string }
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /policies:
+    post:
+      tags: [policies]
+      summary: Issue a policy (bind coverage)
+      description: >
+        Issues coverage from a quote + offer. Supports both payment models:
+        PLATFORM_COLLECTED (partner sends payment reference) and SAFECOVER_COLLECT (SafeCover returns a payment session).
+        Returns 201 for synchronous issuance, or 202 for asynchronous issuance with polling and webhook completion.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyRequest"
+      responses:
+        "201":
+          description: Policy issued synchronously
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePolicyResponse"
+        "202":
+          description: Policy issuance pending (async)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePolicyResponse"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /policies/{policy_id}:
+    get:
+      tags: [policies]
+      summary: Get a policy (polling/status)
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [policy]
+                properties:
+                  policy:
+                    $ref: "#/components/schemas/Policy"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /policies/{policy_id}/certificate:
+    get:
+      tags: [policies]
+      summary: Fetch or redirect to a certificate artifact
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+      responses:
+        "302":
+          description: Redirect to hosted certificate
+        "200":
+          description: Certificate payload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  format:
+                    type: string
+                    enum: [HTML, PDF]
+                  url:
+                    type: string
+                  html:
+                    type: string
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /webhooks/subscriptions:
+    post:
+      tags: [webhooks]
+      summary: Create a webhook subscription
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookSubscription"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /events:
+    get:
+      tags: [events]
+      summary: Replay events (missed webhooks)
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+                  next_cursor:
+                    type: string
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /claims:
+    post:
+      tags: [claims]
+      summary: Submit a claim
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClaimRequest"
+      responses:
+        "201":
+          description: Claim created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [claim]
+                properties:
+                  claim:
+                    $ref: "#/components/schemas/Claim"
+        "400":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+    get:
+      tags: [claims]
+      summary: List claims
+      parameters:
+        - name: policy_id
+          in: query
+          required: false
+          schema: { type: string }
+        - name: email
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Claims
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [claims]
+                properties:
+                  claims:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Claim"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+  /claims/{claim_id}:
+    get:
+      tags: [claims]
+      summary: Get a claim
+      parameters:
+        - name: claim_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Claim
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [claim]
+                properties:
+                  claim:
+                    $ref: "#/components/schemas/Claim"
+        "404":
+          $ref: "#/components/responses/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Prevents duplicate creates on retries (recommended for all POST create/issue endpoints).
+      schema: { type: string, maxLength: 200 }
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Optional caller-provided trace id, echoed back when possible.
+      schema: { type: string, maxLength: 200 }
+    QuoteId:
+      name: quote_id
+      in: path
+      required: true
+      schema: { type: string }
+    PolicyId:
+      name: policy_id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    ErrorResponse:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    OAuthTokenRequest:
+      type: object
+      required: [grant_type, client_id, client_secret]
+      properties:
+        grant_type:
+          type: string
+          enum: [client_credentials]
+        client_id:
+          type: string
+        client_secret:
+          type: string
+
+    OAuthTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer }
+        scope: { type: string }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code.
+        message:
+          type: string
+        details:
+          description: Optional structured error details.
+        retryable:
+          type: boolean
+          default: false
+        correlation_id:
+          type: string
+
+    Product:
+      type: object
+      required: [product_code, name, segment, is_active]
+      properties:
+        product_code: { type: string }
+        name: { type: string }
+        segment: { type: string }
+        is_active: { type: boolean }
+        quote_ttl_seconds: { type: integer, default: 900 }
+        currency: { type: string }
+        jurisdictions:
+          type: array
+          items: { type: string }
+        sum_insured_cap: { type: integer }
+        disclosures:
+          $ref: "#/components/schemas/Disclosures"
+
+    Disclosures:
+      type: object
+      properties:
+        plain_language_summary_md: { type: string }
+        cooling_off_days: { type: integer }
+        sum_insured_cap: { type: integer }
+        key_rules:
+          description: Product rules in JSON form.
+          type: object
+          additionalProperties: true
+
+    CreateQuoteRequest:
+      type: object
+      required: [store_id, transaction_id, timestamp, channel, items]
+      properties:
+        store_id: { type: string }
+        transaction_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        channel: { type: string, enum: [POS, WEB, APP, USSD] }
+        jurisdiction: { type: string, description: "Optional. If omitted, server picks a default based on partner/store." }
+        currency: { type: string, description: "Optional. If omitted, server chooses a default per product/store." }
+        mode:
+          type: string
+          enum: [SINGLE, RATE, COMPARE]
+          default: SINGLE
+        product_code:
+          type: string
+          description: Maps to product module (Nest). Server may default if omitted.
+        customer:
+          $ref: "#/components/schemas/Customer"
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/QuoteItem"
+        risk_data:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    CreateQuoteResponse:
+      type: object
+      required: [replay, quote]
+      properties:
+        replay: { type: boolean }
+        quote:
+          $ref: "#/components/schemas/Quote"
+
+    Quote:
+      type: object
+      required: [quote_id, status, created_at, expires_at, transaction_id, channel, offers]
+      properties:
+        quote_id: { type: string }
+        status: { type: string, enum: [ACTIVE, EXPIRED, CANCELLED] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        store_id: { type: string }
+        transaction_id: { type: string }
+        channel: { type: string, enum: [POS, WEB, APP, USSD] }
+        jurisdiction: { type: string }
+        currency: { type: string }
+        product_code: { type: string }
+        sum_insured_total: { type: integer }
+        premium_total_min: { type: integer, description: "Minimum premium among returned offers (if multiple)." }
+        premium_total_max: { type: integer, description: "Maximum premium among returned offers (if multiple)." }
+        disclosures:
+          $ref: "#/components/schemas/Disclosures"
+        offers:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Offer"
+        recommended_offer_id:
+          type: string
+          nullable: true
+        selected_offer_id:
+          type: string
+          nullable: true
+
+    Customer:
+      type: object
+      properties:
+        customer_id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        phone: { type: string }
+
+    QuoteItem:
+      type: object
+      required: [sku, quantity]
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        category: { type: string }
+        quantity: { type: integer, minimum: 1, default: 1 }
+        unit_price: { type: integer, minimum: 0, description: "Unit price in minor currency units if currency is known." }
+        declared_value: { type: integer, minimum: 0, description: "Declared value for insurance (may equal unit_price)." }
+        serial:
+          type: string
+          description: Optional. Many checkouts cannot provide serial numbers.
+
+    Offer:
+      type: object
+      required: [offer_id, pricing, coverage]
+      properties:
+        offer_id: { type: string }
+        provider:
+          type: object
+          properties:
+            provider_id: { type: string }
+            name: { type: string }
+            logo: { type: string }
+            tagline: { type: string }
+        plan:
+          type: object
+          properties:
+            plan_id: { type: string }
+            name: { type: string }
+            summary: { type: string }
+            benefits:
+              type: array
+              items: { type: string }
+            terms_url: { type: string }
+        pricing:
+          type: object
+          required: [premium_total]
+          properties:
+            premium_total: { type: integer }
+            commission_total: { type: integer }
+            tax_total: { type: integer }
+        coverage:
+          type: object
+          properties:
+            type: { type: string }
+            sum_insured_total: { type: integer }
+            duration: { type: string }
+            excess: { type: integer }
+        underwriting:
+          type: object
+          properties:
+            decision: { type: string, enum: [APPROVE, REFER, DECLINE] }
+            requires_async_issue: { type: boolean }
+
+    CreatePolicyRequest:
+      type: object
+      required: [quote_id, offer_id, payment]
+      properties:
+        quote_id: { type: string }
+        offer_id: { type: string }
+        customer:
+          $ref: "#/components/schemas/Customer"
+        payment:
+          $ref: "#/components/schemas/PaymentInput"
+        return_url:
+          type: string
+          description: Required when payment.mode=SAFECOVER_COLLECT and a redirect is used.
+        metadata:
+          type: object
+          additionalProperties: true
+
+    PaymentInput:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [PLATFORM_COLLECTED, SAFECOVER_COLLECT]
+        transaction_id:
+          type: string
+          description: Partner order/checkout transaction id.
+        amount_paid:
+          type: integer
+          description: Amount paid in minor currency units (required for PLATFORM_COLLECTED).
+        currency:
+          type: string
+        processor:
+          type: string
+        payment_reference:
+          type: string
+
+    CreatePolicyResponse:
+      type: object
+      required: [policy]
+      properties:
+        policy:
+          $ref: "#/components/schemas/Policy"
+        polling:
+          type: object
+          properties:
+            status_url: { type: string }
+            recommended_poll_seconds: { type: integer }
+        payment_session:
+          type: object
+          description: Present when payment.mode=SAFECOVER_COLLECT.
+          properties:
+            url: { type: string }
+            provider: { type: string }
+
+    Policy:
+      type: object
+      required: [policy_id, status, quote_id, offer_id]
+      properties:
+        policy_id: { type: string }
+        status:
+          type: string
+          enum: [PENDING_PAYMENT, PENDING_ISSUANCE, ACTIVE, FAILED, CANCELLED]
+        issued_at: { type: string, format: date-time }
+        quote_id: { type: string }
+        offer_id: { type: string }
+        provider_id: { type: string }
+        plan_id: { type: string }
+        premium_total: { type: integer }
+        currency: { type: string }
+        coverage:
+          type: object
+          additionalProperties: true
+        certificate:
+          type: object
+          properties:
+            url: { type: string }
+            format: { type: string, enum: [HTML, PDF] }
+
+    CreateWebhookSubscriptionRequest:
+      type: object
+      required: [url, events]
+      properties:
+        url: { type: string }
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - quote.expired
+              - policy.issued
+              - policy.failed
+              - policy.cancelled
+              - claim.submitted
+              - claim.updated
+        secret:
+          type: string
+          description: Optional shared secret. If omitted, server generates one.
+
+    WebhookSubscription:
+      type: object
+      required: [subscription_id, url, events, status]
+      properties:
+        subscription_id: { type: string }
+        url: { type: string }
+        events:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+
+    Event:
+      type: object
+      required: [id, type, created_at, data]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        created_at: { type: string, format: date-time }
+        data:
+          type: object
+          additionalProperties: true
+
+    CreateClaimRequest:
+      type: object
+      required: [policy_id, claim_type]
+      properties:
+        policy_id: { type: string }
+        claim_type: { type: string, enum: [manual, parametric] }
+        description: { type: string }
+        amount: { type: integer }
+        currency: { type: string }
+        trigger_type: { type: string, description: "For parametric claims." }
+        trigger_data:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Claim:
+      type: object
+      required: [claim_id, policy_id, status, created_at]
+      properties:
+        claim_id: { type: string }
+        policy_id: { type: string }
+        claim_type: { type: string }
+        status:
+          type: string
+          enum: [SUBMITTED, TRIGGERED, APPROVED, PAID, REJECTED]
+        description: { type: string }
+        amount: { type: integer }
+        currency: { type: string }
+        created_at: { type: string, format: date-time }

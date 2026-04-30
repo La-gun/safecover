@@ -117,7 +117,15 @@ async function deployToChain(insuredAddress, premiumWei, coverageStr) {
 async function recordPolicy(policyId, insured, premium, coverage) {
   const premiumWei = BigInt(Math.floor(premium * 1e18));
   const coverageStr = `goods-in-transit-${coverage}`;
+  // Use consistent address format for both simulation and real deployment so downstream
+  // systems (validation, audit, claims) always receive the same constructor_args shape.
   const insuredAddress = '0x0000000000000000000000000000000000000001';
+
+  const buildConstructorArgs = () => ({
+    insured: insuredAddress,
+    premium_wei: premiumWei.toString(),
+    coverage: coverageStr,
+  });
 
   if (canDeployReal()) {
     const real = await deployToChain(insuredAddress, premiumWei.toString(), coverageStr);
@@ -132,19 +140,19 @@ async function recordPolicy(policyId, insured, premium, coverage) {
       return {
         ...real,
         execution_steps: steps,
-        constructor_args: { insured: insuredAddress, premium_wei: premiumWei.toString(), coverage: coverageStr },
+        constructor_args: buildConstructorArgs(),
       };
     }
   }
 
-  const result = simulateContractExecution(policyId, insured, premium, coverage);
+  const result = simulateContractExecution(policyId, insuredAddress, premium, coverage);
   return {
     tx_hash: result.tx_hash,
     contract_address: result.contract_address,
     smart_contract_url: result.smart_contract_url,
     contract_address_url: result.contract_address_url,
     execution_steps: result.execution_steps,
-    constructor_args: result.constructor_args,
+    constructor_args: buildConstructorArgs(),
   };
 }
 

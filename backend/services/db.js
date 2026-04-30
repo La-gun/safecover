@@ -93,6 +93,21 @@ function initSchema(database) {
     CREATE INDEX IF NOT EXISTS idx_claims_policy ON claims(policy_id);
     CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
   `);
+  migrateFraudColumns(database);
+}
+
+function migrateFraudColumns(database) {
+  try {
+    const cols = database.prepare("PRAGMA table_info(policies)").all();
+    const names = new Set(cols.map((c) => c.name));
+    if (!names.has('fraud_decision')) {
+      database.exec('ALTER TABLE policies ADD COLUMN fraud_decision TEXT');
+      database.exec('ALTER TABLE policies ADD COLUMN fraud_score REAL');
+      database.exec('ALTER TABLE policies ADD COLUMN fraud_reasons TEXT');
+    }
+  } catch (e) {
+    console.warn('Fraud column migration:', e.message);
+  }
 }
 
 function audit(entityType, entityId, action, oldVal, newVal, actor = 'system') {
@@ -114,6 +129,16 @@ function policiesFromDb() {
   return rows.map(rowToPolicy);
 }
 
+function safeParse(val, fallback) {
+  if (val == null) return fallback;
+  if (typeof val !== 'string') return val;
+  try {
+    return JSON.parse(val || (typeof fallback === 'object' ? '{}' : '[]'));
+  } catch {
+    return fallback;
+  }
+}
+
 function rowToPolicy(r) {
   return {
     policy_id: r.policy_id,
@@ -123,17 +148,20 @@ function rowToPolicy(r) {
     premium: r.premium,
     commission: r.commission,
     transaction_id: r.transaction_id,
-    customer: typeof r.customer === 'string' ? JSON.parse(r.customer || '{}') : r.customer,
+    customer: safeParse(r.customer, {}),
     quote_id: r.quote_id,
     scenario: r.scenario,
     jurisdiction: r.jurisdiction,
-    coverage_details: typeof r.coverage_details === 'string' ? JSON.parse(r.coverage_details || '{}') : r.coverage_details,
+    coverage_details: safeParse(r.coverage_details, {}),
     tx_hash: r.tx_hash,
     contract_address: r.contract_address,
-    execution_steps: typeof r.execution_steps === 'string' ? JSON.parse(r.execution_steps || '[]') : r.execution_steps,
-    constructor_args: typeof r.constructor_args === 'string' ? JSON.parse(r.constructor_args || '{}') : r.constructor_args,
+    execution_steps: safeParse(r.execution_steps, []),
+    constructor_args: safeParse(r.constructor_args, {}),
     partner_id: r.partner_id,
     recorded_at: r.recorded_at,
+    fraud_decision: r.fraud_decision,
+    fraud_score: r.fraud_score != null ? r.fraud_score : undefined,
+    fraud_reasons: safeParse(r.fraud_reasons, []),
   };
 }
 
@@ -141,8 +169,8 @@ function savePolicyToDb(policy) {
   const d = getDb();
   if (!d) return policy;
   const stmt = d.prepare(`
-    INSERT OR REPLACE INTO policies (policy_id, provider_id, plan_id, provider_name, premium, commission, transaction_id, customer, quote_id, scenario, jurisdiction, coverage_details, tx_hash, contract_address, execution_steps, constructor_args, partner_id, recorded_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO policies (policy_id, provider_id, plan_id, provider_name, premium, commission, transaction_id, customer, quote_id, scenario, jurisdiction, coverage_details, tx_hash, contract_address, execution_steps, constructor_args, partner_id, recorded_at, fraud_decision, fraud_score, fraud_reasons)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     policy.policy_id,
@@ -162,7 +190,10 @@ function savePolicyToDb(policy) {
     JSON.stringify(policy.execution_steps || []),
     JSON.stringify(policy.constructor_args || {}),
     policy.partner_id,
-    policy.recorded_at
+    policy.recorded_at,
+    policy.fraud_decision || null,
+    policy.fraud_score ?? null,
+    JSON.stringify(policy.fraud_reasons || [])
   );
   audit('policy', policy.policy_id, 'create', null, policy, policy.partner_id);
   return policy;
@@ -191,7 +222,7 @@ function rowToClaim(r) {
     amount: r.amount,
     status: r.status,
     trigger_type: r.trigger_type,
-    trigger_data: typeof r.trigger_data === 'string' ? JSON.parse(r.trigger_data || '{}') : r.trigger_data,
+    trigger_data: safeParse(r.trigger_data, {}),
     payout_amount: r.payout_amount,
     payout_at: r.payout_at,
     created_at: r.created_at,

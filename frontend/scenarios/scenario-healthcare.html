@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeCover – Healthcare | Appointment Protection</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); color: #064e3b; }
+    .scenario-header {
+      background: linear-gradient(135deg, #047857 0%, #059669 100%);
+      color: #fff;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(4,120,87,0.3);
+    }
+    .scenario-header h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .scenario-header .badge { display: inline-block; background: rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px; }
+    .checkout-container { max-width: 1000px; margin: 24px auto; padding: 0 20px; }
+    .checkout-frame { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; display: flex; min-height: 520px; }
+    .checkout-main { flex: 1; padding: 28px; }
+    .checkout-sidebar { width: 360px; padding: 28px; background: #f0fdf4; border-left: 1px solid #86efac; }
+    .section-title { font-size: 17px; font-weight: 600; margin: 0 0 16px; color: #064e3b; }
+    .cart-item { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid #a7f3d0; align-items: center; }
+    .cart-item:last-child { border-bottom: none; }
+    .cart-item-img { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #d1fae5; flex-shrink: 0; }
+    .cart-item-img img { width: 100%; height: 100%; object-fit: cover; }
+    .cart-item-details { flex: 1; min-width: 0; }
+    .cart-item-name { font-weight: 600; font-size: 14px; }
+    .cart-item-meta { font-size: 12px; color: #047857; margin-top: 2px; }
+    .cart-item-price { font-weight: 700; font-size: 15px; color: #064e3b; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: #047857; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 12px; border: 1px solid #6ee7b7; border-radius: 8px; font-size: 14px; }
+    .doctor-card { display: flex; gap: 16px; padding: 16px; background: #ecfdf5; border-radius: 10px; margin-bottom: 20px; }
+    .doctor-card img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; }
+    .doctor-info h3 { margin: 0 0 4px; }
+    .doctor-info p { margin: 0; font-size: 13px; color: #047857; }
+    .protection-box { margin-top: 24px; padding: 20px; background: #d1fae5; border: 2px solid #10b981; border-radius: 10px; }
+    .protection-box h3 { margin: 0 0 12px; font-size: 15px; color: #047857; }
+    .protection-box ul { margin: 0 0 16px; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #064e3b; }
+    .protection-box label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .protection-box input[type="checkbox"] { width: 20px; height: 20px; accent-color: #10b981; }
+    .order-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; }
+    .order-row.total { font-size: 18px; font-weight: 700; border-top: 2px solid #6ee7b7; margin-top: 12px; padding-top: 16px; }
+    .pay-btn { width: 100%; padding: 16px; background: linear-gradient(135deg, #047857 0%, #059669 100%); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 20px; }
+    .pay-btn:hover { opacity: 0.95; }
+    .success-banner { background: #dcfce7; color: #166534; padding: 20px; border-radius: 10px; margin-top: 24px; font-weight: 500; display: none; }
+    .success-banner.show { display: block; }
+    .port-badge { position: fixed; top: 12px; right: 12px; background: #047857; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <span class="port-badge">Port 3003 – Healthcare</span>
+  <div class="scenario-header">
+    <h1>🏥 Healthcare Appointment Booking</h1>
+    <p>Multi-service visit with appointment protection</p>
+    <span class="badge">Appointment protection • Up to $500 • 30 days</span>
+  </div>
+  <div class="checkout-container">
+    <div class="checkout-frame">
+      <div class="checkout-main">
+        <h2 class="section-title">Provider & appointment</h2>
+        <div class="doctor-card">
+          <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=160&h=160&fit=crop" alt="Dr. Chen">
+          <div class="doctor-info">
+            <h3>Dr. Sarah Chen, MD</h3>
+            <p>General Practice • Board Certified</p>
+            <p>Tomorrow, 10:00 AM – 10:30 AM</p>
+            <p>Location: Wellness Medical Center, Suite 200</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Patient</label>
+          <input type="text" value="Michael Thompson" readonly>
+        </div>
+        <div class="form-group">
+          <label>Insurance (optional)</label>
+          <input type="text" value="Self-pay" readonly>
+        </div>
+
+        <div class="protection-box">
+          <h3>✓ Add SafeCover appointment protection</h3>
+          <ul>
+            <li>Covers no-show and cancellation fees</li>
+            <li>Telemedicine visit protection</li>
+            <li>Up to $500 per appointment</li>
+          </ul>
+          <label><input type="checkbox" id="add-protection"> Add protection for <strong id="premium-display">$—</strong></label>
+        </div>
+      </div>
+      <div class="checkout-sidebar">
+        <h2 class="section-title">Visit summary</h2>
+        <div id="cart-items"></div>
+        <div class="order-row"><span>Subtotal</span><span id="subtotal">$0</span></div>
+        <div class="order-row" id="protection-row" style="display:none"><span>Appointment protection</span><span id="protection-amount">$0</span></div>
+        <div class="order-row total"><span>Total</span><span id="total">$0</span></div>
+        <button class="pay-btn" id="pay-btn">Confirm booking</button>
+        <div class="success-banner" id="success-banner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var SCENARIO_ID = 'healthcare';
+    var cartItems = [
+      { id: '1', name: 'Initial consultation (in-office)', qty: 1, price: 185, image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=128&h=128&fit=crop' },
+      { id: '2', name: 'Comprehensive blood panel', qty: 1, price: 95, image: 'https://images.unsplash.com/photo-1581595220892-b0739db3ba8c?w=128&h=128&fit=crop' },
+      { id: '3', name: 'ECG / EKG', qty: 1, price: 78, image: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=128&h=128&fit=crop' },
+      { id: '4', name: 'Urinalysis', qty: 1, price: 42, image: 'https://images.unsplash.com/photo-1581595220892-b0739db3ba8c?w=128&h=128&fit=crop' },
+      { id: '5', name: 'Administrative fee', qty: 1, price: 25, image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=128&h=128&fit=crop' }
+    ];
+    var API = window.location.origin;
+    var selectedOption = null;
+
+    function getCartValue() { return cartItems.reduce(function(s,i){ return s + i.price * (i.qty||1); }, 0); }
+
+    function renderCart() {
+      var html = '';
+      cartItems.forEach(function(i) {
+        var total = i.price * (i.qty||1);
+        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div></div>';
+        html += '<div class="cart-item-price">$' + total.toFixed(2) + '</div></div>';
+      });
+      document.getElementById('cart-items').innerHTML = html;
+      var subtotal = getCartValue();
+      document.getElementById('subtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('total').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('pay-btn').textContent = 'Confirm booking $' + subtotal.toFixed(2);
+    }
+
+    function fetchQuote() {
+      var items = cartItems.map(function(i){ return { value: i.price * (i.qty||1), name: i.name }; });
+      fetch(API + '/api/quote/rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        body: JSON.stringify({ items: items, scenario: SCENARIO_ID, jurisdiction: 'US' })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var opt = data.recommended || (data.options && data.options[0]);
+          if (opt) { document.getElementById('premium-display').textContent = '$' + opt.premium.toFixed(2); selectedOption = { premium: opt.premium, quote_id: opt.quote_id, provider_id: opt.provider_id, plan_id: opt.plan_id }; }
+        })
+        .catch(function(){ document.getElementById('premium-display').textContent = '$4.20'; selectedOption = { premium: 4.20, quote_id: 'QTY'+Date.now(), provider_id: 'safecover', plan_id: 'standard' }; });
+    }
+
+    document.getElementById('add-protection').onchange = function() {
+      var cb = this;
+      var subtotal = getCartValue();
+      var row = document.getElementById('protection-row');
+      var totalEl = document.getElementById('total');
+      var payBtn = document.getElementById('pay-btn');
+      if (cb.checked && selectedOption) {
+        row.style.display = 'flex';
+        document.getElementById('protection-amount').textContent = '$' + selectedOption.premium.toFixed(2);
+        var total = subtotal + selectedOption.premium;
+        totalEl.textContent = '$' + total.toFixed(2);
+        payBtn.textContent = 'Confirm booking $' + total.toFixed(2);
+      } else {
+        row.style.display = 'none';
+        totalEl.textContent = '$' + subtotal.toFixed(2);
+        payBtn.textContent = 'Confirm booking $' + subtotal.toFixed(2);
+      }
+    };
+
+    document.getElementById('pay-btn').onclick = function() {
+      var btn = this;
+      var cb = document.getElementById('add-protection');
+      var subtotal = getCartValue();
+      btn.disabled = true;
+      btn.textContent = 'Processing…';
+      if (!cb.checked || !selectedOption) {
+        document.getElementById('success-banner').textContent = 'Booking confirmed. Total: $' + subtotal.toFixed(2);
+        document.getElementById('success-banner').classList.add('show');
+        btn.textContent = 'Paid $' + subtotal.toFixed(2);
+        btn.disabled = false;
+        return;
+      }
+      var orderId = 'APT_' + Date.now() + '_' + SCENARIO_ID;
+      fetch(API + '/api/policy/bind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        body: JSON.stringify({
+          quote_id: selectedOption.quote_id,
+          transaction_id: orderId,
+          customer: { email: 'michael.t@email.com', name: 'Michael Thompson' },
+          premium_paid: selectedOption.premium,
+          provider_id: selectedOption.provider_id,
+          plan_id: selectedOption.plan_id,
+          scenario: SCENARIO_ID,
+          jurisdiction: 'US'
+        })
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          document.getElementById('success-banner').textContent = 'Booking confirmed! Policy ' + res.policy_id + ' issued. Appointment protected up to $500.';
+          document.getElementById('success-banner').classList.add('show');
+          btn.textContent = 'Paid $' + (subtotal + selectedOption.premium).toFixed(2);
+        })
+        .catch(function(){
+          document.getElementById('success-banner').textContent = 'Booking confirmed. Protection added.';
+          document.getElementById('success-banner').classList.add('show');
+          btn.textContent = 'Paid $' + (subtotal + selectedOption.premium).toFixed(2);
+        })
+        .finally(function(){ btn.disabled = false; });
+    };
+
+    renderCart();
+    fetchQuote();
+  </script>
+</body>
+</html>

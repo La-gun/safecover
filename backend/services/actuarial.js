@@ -21,6 +21,7 @@ const BASE_FREQUENCY = {
   parametric: 3.5,
   gadgets: 8.0,
   events: 6.0,
+  jewellery: 1.5,
   default: 2.5,
 };
 

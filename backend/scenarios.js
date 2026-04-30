@@ -162,4 +162,21 @@ module.exports = {
     label: 'Add ticket protection',
     cart_label: 'Ticket Protection',
   },
+  jewellery: {
+    id: 'jewellery',
+    name: 'Jewellery & Watch',
+    icon: '💎',
+    coverage_type: 'jewellery-all-risks',
+    max_value: 25000,
+    duration: '12 months',
+    premium_rate: 0.025,
+    benefits: [
+      'Accidental damage, theft, loss (proven theft)',
+      'Mechanical breakdown (watches)',
+      'Worldwide cover',
+      'UK IPID-compliant certificate',
+    ],
+    label: 'Add jewellery protection',
+    cart_label: 'Jewellery & Watch Insurance',
+  },
 };

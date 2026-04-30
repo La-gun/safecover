@@ -5,10 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SafeCover Checkout – Compare Protection</title>
   <style>
+    :root{
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --brand: #111827;
+      --brand-2: #0a7c42;
+      --danger: #b42318;
+      --danger-bg: #fffbfa;
+      --focus: #2563eb;
+      --shadow: 0 10px 30px rgba(17,24,39,0.08);
+      --shadow-soft: 0 2px 10px rgba(17,24,39,0.06);
+      --radius: 12px;
+    }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+    a { color: inherit; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
     .demo-header {
-      background: #1a1a1a;
+      background: #0b0f19;
       color: #fff;
       padding: 12px 20px;
       font-size: 14px;
@@ -19,29 +37,29 @@
       gap: 8px;
       padding: 12px 20px;
       background: #fff;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid var(--border);
     }
     .viewport-toggle button {
       padding: 8px 16px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border-strong);
       background: #fff;
       cursor: pointer;
       border-radius: 6px;
       font-size: 14px;
     }
-    .viewport-toggle button.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .viewport-toggle button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
     .checkout-frame {
       margin: 20px auto;
       background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
       overflow-x: hidden;
       overflow-y: auto;
       transition: width 0.3s ease;
     }
     .checkout-frame.desktop { width: 960px; }
     .checkout-frame.mobile { width: 375px; margin: 20px auto; }
-    .checkout-layout { display: flex; min-height: 500px; }
+    .checkout-layout { display: flex; min-height: 500px; gap: 18px; }
     .checkout-frame.mobile .checkout-layout { flex-direction: column; }
     .checkout-main { flex: 1; padding: 24px; }
     .checkout-frame.mobile .checkout-main { padding: 16px; }
@@ -49,19 +67,34 @@
       width: 340px;
       padding: 24px;
       background: #fafafa;
-      border-left: 1px solid #e8e8e8;
+      border-left: 1px solid var(--border);
     }
-    .checkout-frame.mobile .checkout-sidebar { width: 100%; border-left: none; border-top: 1px solid #e8e8e8; padding: 16px; }
-    .section-title { font-size: 18px; font-weight: 600; margin: 0 0 16px; }
+    .checkout-frame.mobile .checkout-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); padding: 16px; }
+    .section-title { font-size: 18px; font-weight: 650; margin: 0 0 16px; letter-spacing: -0.01em; }
+    .section-subtitle { font-size: 13px; color: var(--muted); margin: -10px 0 16px; line-height: 1.45; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-soft); }
+    .card + .card { margin-top: 14px; }
+    .card-header { display:flex; align-items:flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .card-header .kicker { font-size: 12px; color: var(--muted); }
+    .card-header .section-title { margin: 0; }
+    .card-header .section-subtitle { margin: 4px 0 0; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #555; }
     .form-group input {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border-strong);
       border-radius: 6px;
       font-size: 14px;
+      background: #fff;
     }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .checkout-frame.mobile .form-row { grid-template-columns: 1fr; }
+    .help-text { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .field-error { display:none; font-size: 12px; color: var(--danger); margin-top: 6px; }
+    .has-error input { border-color: #fda29b; background: var(--danger-bg); }
+    .has-error .field-error { display:block; }
+    input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
     .cart-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #eee; align-items: center; }
     .cart-item-img-wrap { width: 48px; height: 48px; border-radius: 6px; overflow: hidden; background: #eee; flex-shrink: 0; }
     .cart-item-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -69,18 +102,19 @@
     .cart-item-details { flex: 1; min-width: 0; }
     .cart-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a1a1a; flex-shrink: 0; }
     .cart-item.excluded { opacity: 0.5; }
-    .coverage-mode { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .coverage-mode { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .coverage-mode label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
     .coverage-mode input[type="radio"] { width: 18px; height: 18px; accent-color: #1a1a1a; }
     .cart-item-name { font-weight: 500; font-size: 14px; }
     .cart-item-meta { font-size: 13px; color: #666; margin-top: 2px; }
     .cart-item-price { font-weight: 600; font-size: 14px; }
-    .order-summary-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+    .order-summary-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; align-items: baseline; gap: 12px; }
+    .order-summary-row span:last-child { font-variant-numeric: tabular-nums; }
     .order-summary-row.total { font-size: 16px; font-weight: 700; border-top: 1px solid #ddd; margin-top: 8px; padding-top: 12px; }
     .pay-btn {
       width: 100%;
       padding: 14px;
-      background: #1a1a1a;
+      background: var(--brand);
       color: #fff;
       border: none;
       border-radius: 6px;
@@ -89,9 +123,23 @@
       cursor: pointer;
       margin-top: 20px;
     }
-    .pay-btn:hover { background: #333; }
+    .pay-btn:hover { background: #0b0f19; }
+    .pay-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .summary-note { font-size: 12px; color: var(--muted); margin-top: 10px; line-height: 1.45; }
+    .inline-banner { display:none; margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+    .inline-banner.error { display:block; background: var(--danger-bg); border: 1px solid #fda29b; color: #7a271a; }
+    .inline-banner.ok { display:block; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .sticky { position: sticky; top: 14px; }
+    .checkout-frame.mobile .sticky { position: static; }
+    .stepper { display:flex; gap: 10px; align-items:center; margin-bottom: 14px; }
+    .step { display:flex; align-items:center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font-size: 12px; color: var(--muted); }
+    .step .dot { width: 18px; height: 18px; border-radius: 999px; display:inline-flex; align-items:center; justify-content:center; background: #eef2ff; color: #3730a3; font-weight: 700; font-size: 11px; }
+    .step.active { border-color: #c7d2fe; color: #1f2937; }
+    .step.active .dot { background: #111827; color: #fff; }
+    .step.done { border-color: #bbf7d0; color: #166534; }
+    .step.done .dot { background: #0a7c42; color: #fff; }
     /* Multi-provider protection options */
-    .protection-section { margin-top: 24px; }
+    .protection-section { margin-top: 14px; }
     .protection-intro { font-size: 13px; color: #666; margin: -8px 0 16px; }
     .protection-intro a { color: #1a1a1a; text-decoration: underline; }
     .coverage-hint { font-size: 12px; color: #0a7c42; margin-bottom: 12px; }
@@ -130,23 +178,27 @@
     /* Compact top-4 + other options layout */
     .compact-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px; }
     @media (min-width: 600px) { .compact-options { grid-template-columns: repeat(4, 1fr); } }
-    .compact-opt { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 2px solid #e0e0e0; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; min-width: 0; }
+    .compact-opt { display: flex; align-items: center; gap: 6px; padding: 9px 10px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 12px; transition: all 0.2s; min-width: 0; min-height: 38px; }
     .compact-opt:hover { border-color: #1a1a1a; background: #fafafa; }
     .compact-opt.selected { border-color: #1a1a1a; background: #f0f4ff; }
     .compact-opt .opt-price { font-weight: 700; color: #1a1a1a; margin-left: auto; flex-shrink: 0; }
     .compact-opt > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .compact-opt.recommended { border-color: #0a7c42; background: #f0fdf4; }
+    .compact-opt .opt-left { display:flex; align-items:center; gap: 6px; min-width: 0; }
+    .compact-opt .opt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .compact-opt.recommended { border-color: #0a7c42; background: #f0fdf4; box-shadow: 0 0 0 3px rgba(10,124,66,0.12); }
     .compact-opt.recommended::before { content: '★'; color: #0a7c42; font-size: 12px; }
-    .other-options-wrap { margin-top: 8px; }
-    .other-options-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed #ccc; border-radius: 6px; background: #fafafa; cursor: pointer; font-size: 13px; color: #666; width: 100%; }
+    .rec-badge { display:inline-flex; align-items:center; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 750; letter-spacing: 0.02em; color: #14532d; background: #dcfce7; border: 1px solid #bbf7d0; flex-shrink: 0; }
+    .compact-opt:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+    .other-options-wrap { margin-top: 10px; }
+    .other-options-toggle { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px dashed #ccc; border-radius: 10px; background: #fafafa; cursor: pointer; font-size: 13px; color: #666; width: 100%; }
     .other-options-toggle:hover { border-color: #1a1a1a; color: #1a1a1a; background: #f5f5f5; }
     .other-options-toggle .chevron { transition: transform 0.2s; }
     .other-options-toggle.open .chevron { transform: rotate(180deg); }
-    .other-options-list { display: none; margin-top: 8px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
+    .other-options-list { display: none; margin-top: 8px; padding: 12px; background: #f8f9fa; border-radius: 12px; border: 1px solid #e8e8e8; }
     .other-options-list.show { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     @media (min-width: 600px) { .other-options-list.show { grid-template-columns: repeat(4, 1fr); } }
     .scenario-compact-opt { padding: 6px 10px; font-size: 12px; }
-    .subsection-title { font-size: 15px; font-weight: 600; margin: 16px 0 8px; }
+    .subsection-title { font-size: 15px; font-weight: 650; margin: 16px 0 8px; }
     .subsection-desc { font-size: 13px; color: #666; margin: 0 0 12px; }
     .cart-items-main { margin: 16px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
     .cart-items-main .cart-item { background: #fff; padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #eee; }
@@ -155,10 +207,36 @@
     .protection-details { line-height: 1.6; }
     .protection-details strong { display: block; margin-bottom: 4px; }
     .product-type-row { margin: 16px 0; }
-    .terms-accept-row { margin-top: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
+    .terms-accept-row { margin-top: 12px; padding: 14px; background: #f8f9fa; border-radius: 12px; border: 1px solid #e8e8e8; }
     .terms-checkbox { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 14px; }
     .terms-checkbox input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1a1a1a; flex-shrink: 0; margin-top: 2px; }
     .terms-checkbox a { color: #1a1a1a; text-decoration: underline; }
+    .terms-accept-row.attention { border-color: #fda29b; background: var(--danger-bg); }
+
+    /* Hover/focus policy summary popover */
+    .policy-popover {
+      position: fixed;
+      z-index: 50;
+      width: 320px;
+      max-width: calc(100vw - 24px);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 12px 12px;
+      font-size: 12px;
+      color: var(--text);
+      display: none;
+      pointer-events: none;
+    }
+    .policy-popover .title { font-weight: 750; font-size: 13px; letter-spacing: -0.01em; }
+    .policy-popover .meta { color: var(--muted); margin-top: 2px; }
+    .policy-popover .row { display:flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
+    .policy-popover .pill { display:inline-flex; align-items:center; gap: 6px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background:#fafafa; color: #374151; font-weight: 600; }
+    .policy-popover .summary { margin-top: 10px; color: #374151; line-height: 1.4; }
+    .policy-popover ul { margin: 8px 0 0 16px; padding: 0; color: #374151; }
+    .policy-popover li { margin: 3px 0; }
+    .policy-popover .terms { margin-top: 10px; color: var(--muted); }
     /* Post-payment documents */
     .documents-section { margin-top: 32px; padding-top: 24px; border-top: 2px solid #e0e0e0; display: none; }
     .documents-section.show { display: block; }
@@ -193,41 +271,83 @@
   <div id="checkout-frame" class="checkout-frame desktop">
     <div class="checkout-layout">
       <div class="checkout-main">
-        <h2 class="section-title">Shipping information</h2>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" value="customer@example.com" readonly>
+        <div class="stepper" aria-label="Checkout steps">
+          <div class="step active" id="step-shipping"><span class="dot">1</span><span>Shipping</span></div>
+          <div class="step" id="step-protection"><span class="dot">2</span><span>Protection</span></div>
+          <div class="step" id="step-payment"><span class="dot">3</span><span>Payment</span></div>
         </div>
-        <div class="form-group">
-          <label>Address</label>
-          <input type="text" value="123 Main St, New York, NY" readonly>
-        </div>
-        <h2 class="section-title" style="margin-top: 24px;">Shipping method</h2>
-        <div style="padding: 12px; border: 1px solid #ddd; border-radius: 6px;">Standard — 5–7 days — Free</div>
 
-        <div class="protection-section">
-          <h2 class="section-title">Choose your protection</h2>
-          <p class="protection-intro">Select coverage mode and items to protect. Our AI rater picks the best product type and plan for your cart—no manual selection needed. Top 4 options shown; click "Other options" for more.</p>
+        <div class="card" id="shipping-card">
+          <div class="card-header">
+            <div>
+              <h2 class="section-title" style="margin:0">Shipping information</h2>
+              <div class="section-subtitle">Used for receipts and delivery updates. Demo fields are editable.</div>
+            </div>
+            <div class="kicker">Secure checkout</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" id="fg-email">
+              <label for="email">Email</label>
+              <input id="email" type="email" inputmode="email" autocomplete="email" value="customer@example.com">
+              <div class="field-error" id="err-email">Enter a valid email address.</div>
+            </div>
+            <div class="form-group" id="fg-phone">
+              <label for="phone">Phone (optional)</label>
+              <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 555 123 4567">
+              <div class="help-text">Only used if the courier needs help delivering.</div>
+            </div>
+          </div>
+          <div class="form-group" id="fg-address">
+            <label for="address">Address</label>
+            <input id="address" type="text" autocomplete="shipping street-address" value="123 Main St, New York, NY">
+            <div class="field-error" id="err-address">Enter your full delivery address.</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" id="fg-city">
+              <label for="city">City</label>
+              <input id="city" type="text" autocomplete="shipping address-level2" value="New York">
+              <div class="field-error" id="err-city">City is required.</div>
+            </div>
+            <div class="form-group" id="fg-zip">
+              <label for="zip">ZIP / Postal code</label>
+              <input id="zip" type="text" inputmode="numeric" autocomplete="shipping postal-code" value="10001">
+              <div class="field-error" id="err-zip">Enter a valid ZIP / postal code.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="shipping-method-card">
+          <div class="card-header">
+            <div>
+              <h2 class="section-title" style="margin:0">Shipping method</h2>
+              <div class="section-subtitle">Free standard shipping included for this demo.</div>
+            </div>
+          </div>
+          <div style="padding: 12px; border: 1px solid var(--border-strong); border-radius: 10px; background:#fff; display:flex; justify-content:space-between; gap:12px; align-items:center;">
+            <div>
+              <div style="font-weight:650">Standard</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">5–7 business days</div>
+            </div>
+            <div style="font-weight:700;">Free</div>
+          </div>
+        </div>
+
+        <div class="protection-section card" style="padding:16px;">
+          <div class="card-header" style="margin-bottom:10px;">
+            <div>
+              <h2 class="section-title" style="margin:0">Choose your protection</h2>
+              <div class="section-subtitle">Choose a protection plan, then pick which items to insure (optional). Your order items are controlled from the Order summary.</div>
+            </div>
+          </div>
           <div class="coverage-mode">
-            <label><input type="radio" name="coverage-mode" value="whole" checked> Whole cart – cover entire order</label>
-            <label><input type="radio" name="coverage-mode" value="select"> Selected items – choose which to protect</label>
+            <label><input type="radio" name="coverage-mode" value="whole" checked> Insure whole order</label>
+            <label><input type="radio" name="coverage-mode" value="select"> Insure selected items</label>
           </div>
           <div id="coverage-hint" class="coverage-hint"></div>
           <div id="cart-items-main" class="cart-items-main" style="display:none">
-            <h3 class="subsection-title">Select items to protect</h3>
-            <p class="subsection-desc">Check the items you want included in your protection policy.</p>
+            <h3 class="subsection-title">Select items to insure</h3>
+            <p class="subsection-desc">These checkboxes only affect insurance coverage. To remove items from your order, use the Order summary checkboxes.</p>
             <div id="cart-items-main-list"></div>
-          </div>
-          <div class="product-type-row">
-            <span class="subsection-title" style="margin:0 0 8px;display:block">AI Recommended product type</span>
-            <div id="scenario-compact" class="compact-options"></div>
-            <div class="other-options-wrap">
-              <button type="button" id="scenario-other-toggle" class="other-options-toggle">
-                <span class="chevron">▼</span>
-                <span>Other product types</span>
-              </button>
-              <div id="scenario-other-list" class="other-options-list"></div>
-            </div>
           </div>
           <h3 class="subsection-title">AI Recommended Protection</h3>
           <div id="protection-compact" class="compact-options"></div>
@@ -238,6 +358,7 @@
             </button>
             <div id="protection-other-list" class="other-options-list"></div>
           </div>
+          <div id="policy-popover" class="policy-popover" role="status" aria-live="polite"></div>
           <div id="protection-details" class="protection-details" style="display:none; margin-top:12px; padding:12px; background:#f8f9fa; border-radius:8px; border:1px solid #e8e8e8; font-size:13px;"></div>
           <div id="terms-accept-row" class="terms-accept-row" style="display:none">
             <label class="terms-checkbox">
@@ -247,19 +368,57 @@
           </div>
           <div id="status-msg" class="status-msg" style="display:none"></div>
         </div>
+
+        <div class="card" id="payment-card" style="margin-top:16px;">
+          <div class="card-header">
+            <div>
+              <h2 class="section-title" style="margin:0">Payment</h2>
+              <div class="section-subtitle">Demo card form for UX only. No real payment is processed.</div>
+            </div>
+          </div>
+          <div class="form-group" id="fg-card">
+            <label for="card-number">Card number</label>
+            <input id="card-number" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" maxlength="23">
+            <div class="field-error" id="err-card">Enter a valid card number.</div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" id="fg-exp">
+              <label for="card-exp">Expiry</label>
+              <input id="card-exp" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">
+              <div class="field-error" id="err-exp">Enter a valid expiry (MM/YY).</div>
+            </div>
+            <div class="form-group" id="fg-cvc">
+              <label for="card-cvc">CVC</label>
+              <input id="card-cvc" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4">
+              <div class="field-error" id="err-cvc">Enter a valid CVC.</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="checkout-sidebar">
-        <h2 class="section-title">Order summary</h2>
-        <div id="cart-items-sidebar"></div>
-        <div class="order-summary-row"><span>Subtotal</span><span>$113.00</span></div>
-        <div class="order-summary-row" id="protection-row" style="display:none">
-          <span id="protection-label">Protection</span>
-          <span id="protection-amount">$0</span>
+        <div class="sticky">
+          <h2 class="section-title">Order summary</h2>
+          <div id="cart-items-sidebar"></div>
+          <div class="order-summary-row"><span>Subtotal</span><span id="subtotal-amount">$113.00</span></div>
+          <div class="order-summary-row" id="items-vat-row" style="display:none">
+            <span>VAT (<span id="items-vat-rate">20</span>%)</span>
+            <span id="items-vat-amount">$0</span>
+          </div>
+          <div class="order-summary-row" id="protection-row" style="display:none">
+            <span id="protection-label">Protection</span>
+            <span id="protection-amount">$0</span>
+          </div>
+          <div class="order-summary-row" id="protection-vat-row" style="display:none">
+            <span>VAT (<span id="protection-vat-rate">20</span>%)</span>
+            <span id="protection-vat-amount">$0</span>
+          </div>
+          <div class="order-summary-row"><span>Shipping</span><span>Free</span></div>
+          <div class="order-summary-row total"><span>Total</span><span id="total-amount">$113.00</span></div>
+          <button class="pay-btn" id="pay-btn">Pay $113.00</button>
+          <div id="pay-inline-msg" class="inline-banner error"></div>
+          <div class="summary-note">By placing this order you agree to the store’s purchase terms. If you add protection, you’ll also need to accept the selected plan’s Terms & Conditions.</div>
         </div>
-        <div class="order-summary-row"><span>Shipping</span><span>Free</span></div>
-        <div class="order-summary-row total"><span>Total</span><span id="total-amount">$113.00</span></div>
-        <button class="pay-btn" id="pay-btn">Pay $113.00</button>
       </div>
     </div>
 
@@ -280,7 +439,10 @@
         <div class="doc-card" id="insurance-contract-card" style="display:none">
           <h3>Insurance contract (issued)</h3>
           <div class="doc-body" id="insurance-contract"></div>
-          <div class="doc-footer"><button type="button" id="btn-print-contract">Print</button></div>
+          <div class="doc-footer">
+            <button type="button" id="btn-print-contract">Print</button>
+            <a id="btn-view-ipid" href="#" target="_blank" rel="noopener" style="margin-left:8px;font-size:13px">View IPID Certificate</a>
+          </div>
         </div>
       </div>
     </div>
@@ -294,10 +456,15 @@
         { id: '2', name: 'USB-C Cable Pack', qty: 2, price: 24, image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=96&h=96&fit=crop' },
         { id: '3', name: 'Laptop Stand', qty: 1, price: 45, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=96&h=96&fit=crop' }
       ];
-      var selectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+      // Two-layer model:
+      // - cartSelectedIds: what is currently in the order (checkout summary drives eligibility)
+      // - insuredIds: subset of cartSelectedIds the buyer wants to insure (protection UI drives insured scope)
+      var cartSelectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+      var insuredIds = new Set(cartItems.map(function (i) { return i.id; }));
       var coverageMode = 'whole';
       var selectedOption = null;
       var allOptions = [];
+      var lastRecommended = null;
       var scenarioId = 'retail';
       var scenarioSuggested = false;
       var SCENARIO_LABELS = {
@@ -308,7 +475,8 @@
         food: 'Food & Delivery',
         healthcare: 'Healthcare',
         events: 'Events & Ticketing',
-        mobility: 'Mobility & Gig Economy'
+        mobility: 'Mobility & Gig Economy',
+        jewellery: 'Jewellery & Watch'
       };
       var SCENARIO_TOP4 = ['retail', 'logistics', 'gadgets', 'hospitality'];
 
@@ -328,12 +496,75 @@
         { provider_id: 'assurex', provider_name: 'AssureX', provider_logo: '✓', plan_id: 'ultimate', plan_name: 'Ultimate', premium: 0.57, coverage: 4000, benefits: ['Maximum coverage', '45 days'], summary: 'Maximum coverage with concierge support. 45-day protection.', terms_url: BASE + '/terms.html?provider=assurex', quote_id: 'QTY_assurex_ultimate' },
       ];
 
+      // VAT applied to protection premium (demo default)
+      var PROTECTION_VAT_RATE = 0.20;
+      // VAT applied to goods / items (demo default)
+      var GOODS_VAT_RATE = 0.20;
+
+      function roundMoney(n) {
+        return Math.round((Number(n) || 0) * 100) / 100;
+      }
+
+      function getProtectionBasePremium() {
+        return selectedOption ? Number(selectedOption.premium || 0) : 0;
+      }
+
+      function getProtectionVatAmount() {
+        return roundMoney(getProtectionBasePremium() * PROTECTION_VAT_RATE);
+      }
+
+      function getProtectionPremiumWithVat() {
+        return roundMoney(getProtectionBasePremium() + getProtectionVatAmount());
+      }
+
+      function getItemsNetTotal() {
+        return getCartValue();
+      }
+
+      function getItemsVatAmount() {
+        return roundMoney(getItemsNetTotal() * GOODS_VAT_RATE);
+      }
+
+      function getItemsTotalWithVat() {
+        return roundMoney(getItemsNetTotal() + getItemsVatAmount());
+      }
+
+      function getPerItemProtectionPremiumMap() {
+        // Allocate premium across insured items proportional to their value.
+        // (Purely for display; binding still uses selected plan premium.)
+        var premium = getProtectionBasePremium();
+        var items = getCoveredItems();
+        var total = items.reduce(function (s, i) { return s + (i.price * i.qty); }, 0);
+        var map = {};
+        if (!selectedOption || !premium || !items.length || !total) return map;
+        var running = 0;
+        items.forEach(function (i, idx) {
+          var val = i.price * i.qty;
+          var amt = (idx === items.length - 1)
+            ? roundMoney(premium - running)
+            : roundMoney(premium * (val / total));
+          running = roundMoney(running + amt);
+          map[i.id] = amt;
+        });
+        return map;
+      }
+
+      function getCheckoutItems() {
+        // Purchased items (driven by checkout summary)
+        return coverageMode === 'whole'
+          ? cartItems
+          : cartItems.filter(function (i) { return cartSelectedIds.has(i.id); });
+      }
+
       function getCartValue() {
-        return cartItems.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
+        return getCheckoutItems().reduce(function (s, i) { return s + i.price * i.qty; }, 0);
       }
 
       function getItemsForQuote() {
-        var items = coverageMode === 'whole' ? cartItems : cartItems.filter(function (i) { return selectedIds.has(i.id); });
+        // Insured items (subset chosen in protection list, constrained by checkout summary)
+        var items = coverageMode === 'whole'
+          ? cartItems
+          : cartItems.filter(function (i) { return cartSelectedIds.has(i.id) && insuredIds.has(i.id); });
         return items.map(function (i) { return { value: i.price * i.qty, name: i.name }; });
       }
 
@@ -341,11 +572,77 @@
         return getItemsForQuote().reduce(function (s, i) { return s + i.value; }, 0);
       }
 
+      function getCoveredItems() {
+        return coverageMode === 'whole'
+          ? cartItems
+          : cartItems.filter(function (i) { return cartSelectedIds.has(i.id) && insuredIds.has(i.id); });
+      }
+
+      function renderSelectedProtectionDetails(opt) {
+        var details = document.getElementById('protection-details');
+        if (!details) return;
+        if (!opt) { details.style.display = 'none'; details.innerHTML = ''; return; }
+
+        var insuredVal = getCoveredValue();
+        var items = getCoveredItems();
+        var basePremium = Number(opt.premium || 0);
+        var vat = getProtectionVatAmount();
+        var premiumWithVat = getProtectionPremiumWithVat();
+        var termsUrl = (opt.terms_url || '/terms.html');
+        if (termsUrl.indexOf('http') !== 0) termsUrl = (window.location.origin || '') + termsUrl;
+
+        var topLine = (opt.provider_logo ? (opt.provider_logo + ' ') : '') + opt.provider_name + ' — ' + opt.plan_name;
+        var meta = (coverageMode === 'whole' ? 'Whole cart' : 'Selected items') + ' • $' + insuredVal.toFixed(2) + ' insured';
+        var coverage = opt.coverage ? ('Up to $' + Number(opt.coverage).toLocaleString()) : '—';
+
+        var itemsHtml = '';
+        if (coverageMode === 'select') {
+          itemsHtml = '<div style="margin-top:10px">' +
+            '<div style="font-weight:650;margin-bottom:6px">Covered items</div>' +
+            '<div style="color:#555;font-size:12px;line-height:1.5">' +
+              items.map(function (i) { return escapeHtml(i.name) + ' (x' + i.qty + ')'; }).join('<br>') +
+            '</div></div>';
+        }
+
+        var isRecommended = lastRecommended && lastRecommended.provider_id === opt.provider_id && lastRecommended.plan_id === opt.plan_id;
+        var why = '';
+        if (isRecommended && opt.ai && opt.ai.scores) {
+          why = '<div style="margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid #bbf7d0;background:#f0fdf4;color:#14532d;font-size:12px;line-height:1.4">' +
+            '<strong>Recommended by SafeCover AI</strong><br>' +
+            'Balanced for claims experience and adequate cover (overall score ' + Number(opt.ai.scores.overall || 0).toFixed(2) + ').' +
+          '</div>';
+        }
+
+        details.style.display = 'block';
+        details.innerHTML =
+          '<strong style="font-size:14px">' + escapeHtml(topLine) + '</strong>' +
+          '<div style="margin-top:4px;color:#666;font-size:12px">' + escapeHtml(meta) + '</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
+            '<span class="pill" style="font-size:12px">Premium: $' + basePremium.toFixed(2) + '</span>' +
+            '<span class="pill" style="font-size:12px">VAT (' + Math.round(PROTECTION_VAT_RATE * 100) + '%): $' + vat.toFixed(2) + '</span>' +
+            '<span class="pill" style="font-size:12px">Premium incl. VAT: $' + premiumWithVat.toFixed(2) + '</span>' +
+            '<span class="pill" style="font-size:12px">Coverage: ' + escapeHtml(coverage) + '</span>' +
+          '</div>' +
+          why +
+          (opt.summary ? '<div style="margin-top:10px;color:#374151;font-size:12px;line-height:1.5">' + escapeHtml(opt.summary) + '</div>' : '') +
+          (opt.benefits && opt.benefits.length ? (
+            '<div style="margin-top:10px">' +
+              '<div style="font-weight:650;margin-bottom:6px">Key benefits</div>' +
+              '<div style="font-size:12px;color:#555;line-height:1.5">' + opt.benefits.map(function (b) { return '• ' + escapeHtml(b); }).join('<br>') + '</div>' +
+            '</div>'
+          ) : '') +
+          itemsHtml +
+          '<div style="margin-top:10px;font-size:12px"><a href="' + termsUrl + '" target="_blank" rel="noopener">View full Terms & Conditions</a></div>';
+      }
+
       function renderCartSidebar() {
         var html = '';
+        if (coverageMode === 'select') {
+          html += '<div style="font-size:12px;color:#6b7280;margin:2px 0 10px;line-height:1.4">Order items (affects your subtotal). Insurance coverage is selected in the protection section.</div>';
+        }
         cartItems.forEach(function (i) {
           var lineTotal = i.price * i.qty;
-          var checked = coverageMode === 'whole' || selectedIds.has(i.id);
+          var checked = coverageMode === 'whole' || cartSelectedIds.has(i.id);
           html += '<div class="cart-item' + (coverageMode === 'select' && !checked ? ' excluded' : '') + '">';
           if (coverageMode === 'select') {
             html += '<input type="checkbox" data-id="' + i.id + '" ' + (checked ? 'checked' : '') + '>';
@@ -359,15 +656,32 @@
           document.querySelectorAll('#cart-items-sidebar input[type="checkbox"]').forEach(function (cb) {
             cb.onclick = function (e) { e.stopPropagation(); };
             cb.onchange = function () {
-              if (cb.checked) selectedIds.add(cb.dataset.id);
-              else selectedIds.delete(cb.dataset.id);
+              if (cb.checked) {
+                cartSelectedIds.add(cb.dataset.id);
+                // Opt-out: items added back to cart are insured by default
+                insuredIds.add(cb.dataset.id);
+              } else {
+                cartSelectedIds.delete(cb.dataset.id);
+                // Cannot insure items not in the cart
+                insuredIds.delete(cb.dataset.id);
+              }
               cb.closest('.cart-item').classList.toggle('excluded', !cb.checked);
+              // Keep the main "Selected items" list in sync with sidebar toggles
+              renderCartItemsMain();
               updateCoverageHint();
               fetchAndRenderOptions();
               updateSummary(selectedOption);
+              if (selectedOption) renderSelectedProtectionDetails(getSelectedOptionData());
             };
           });
         }
+      }
+
+      function getSelectedOptionData() {
+        if (!selectedOption) return null;
+        return (allOptions || []).find(function (o) {
+          return o.provider_id === selectedOption.provider_id && o.plan_id === selectedOption.plan_id;
+        }) || null;
       }
 
       function selectProtectionOption(opt, optEl) {
@@ -376,8 +690,12 @@
           selectedOption = null;
           document.getElementById('terms-accept-row').style.display = 'none';
           document.getElementById('terms-accept').checked = false;
+          document.getElementById('terms-accept-row').classList.remove('attention');
+          setInlinePayMsg('');
           details.style.display = 'none';
+          details.innerHTML = '';
           updateSummary(null);
+          updatePayButtonState();
           document.querySelectorAll('#protection-compact .compact-opt, #protection-other-list .compact-opt').forEach(function (el) { el.classList.remove('selected'); });
           return;
         }
@@ -392,12 +710,10 @@
         document.getElementById('terms-accept-row').style.display = 'block';
         document.getElementById('terms-link').href = selectedOption.terms_url;
         document.getElementById('terms-accept').checked = false;
-        details.style.display = 'block';
-        details.innerHTML = '<strong>' + selectedOption.label + '</strong>' +
-          (opt.summary ? '<div style="margin:6px 0;color:#555">' + opt.summary + '</div>' : '') +
-          (opt.benefits && opt.benefits.length ? '<div style="font-size:12px;color:#666">' + opt.benefits.map(function (b) { return '• ' + b; }).join('<br>') + '</div>' : '') +
-          '<div style="margin-top:8px"><a href="' + selectedOption.terms_url + '" target="_blank" rel="noopener">Terms & Conditions</a></div>';
+        document.getElementById('terms-accept-row').classList.remove('attention');
+        renderSelectedProtectionDetails(opt);
         updateSummary(selectedOption);
+        updatePayButtonState();
         document.querySelectorAll('#protection-compact .compact-opt, #protection-other-list .compact-opt').forEach(function (el) { el.classList.remove('selected'); });
         if (optEl) optEl.classList.add('selected');
       }
@@ -419,6 +735,7 @@
           document.querySelectorAll('#protection-compact .compact-opt, #protection-other-list .compact-opt').forEach(function (e) { e.classList.remove('selected'); });
           noProt.classList.add('selected');
         };
+        bindPolicyHover(noProt, null);
         compact.appendChild(noProt);
 
         if (!options || options.length === 0) {
@@ -437,9 +754,15 @@
           var isSel = defaultOpt && defaultOpt.provider_id === opt.provider_id && defaultOpt.plan_id === opt.plan_id;
           var el = document.createElement('div');
           el.className = 'compact-opt' + (isRec ? ' recommended' : '') + (isSel ? ' selected' : '');
-          el.innerHTML = '<span>' + (opt.provider_logo || '') + ' ' + opt.provider_name + ' ' + opt.plan_name + '</span><span class="opt-price">$' + opt.premium.toFixed(2) + '</span>';
+          el.innerHTML =
+            '<span class="opt-left">' +
+              '<span class="opt-name">' + (opt.provider_logo || '') + ' ' + opt.provider_name + ' ' + opt.plan_name + '</span>' +
+              (isRec ? '<span class="rec-badge">Recommended</span>' : '') +
+            '</span>' +
+            '<span class="opt-price">$' + opt.premium.toFixed(2) + '</span>';
           if (isSel) selectedEl = el;
           el.onclick = function () { selectProtectionOption(opt, el); };
+          bindPolicyHover(el, opt);
           compact.appendChild(el);
         });
 
@@ -450,9 +773,15 @@
           var isSel = defaultOpt && defaultOpt.provider_id === opt.provider_id && defaultOpt.plan_id === opt.plan_id;
           var el = document.createElement('div');
           el.className = 'compact-opt' + (isRec ? ' recommended' : '') + (isSel ? ' selected' : '');
-          el.innerHTML = '<span>' + (opt.provider_logo || '') + ' ' + opt.provider_name + ' ' + opt.plan_name + '</span><span class="opt-price">$' + opt.premium.toFixed(2) + '</span>';
+          el.innerHTML =
+            '<span class="opt-left">' +
+              '<span class="opt-name">' + (opt.provider_logo || '') + ' ' + opt.provider_name + ' ' + opt.plan_name + '</span>' +
+              (isRec ? '<span class="rec-badge">Recommended</span>' : '') +
+            '</span>' +
+            '<span class="opt-price">$' + opt.premium.toFixed(2) + '</span>';
           if (isSel) selectedEl = el;
           el.onclick = function () { selectProtectionOption(opt, el); document.getElementById('protection-other-toggle').classList.remove('open'); document.getElementById('protection-other-list').classList.remove('show'); };
+          bindPolicyHover(el, opt);
           otherList.appendChild(el);
         });
 
@@ -466,6 +795,7 @@
       function renderScenarioCompact() {
         var compact = document.getElementById('scenario-compact');
         var otherList = document.getElementById('scenario-other-list');
+        if (!compact || !otherList) return;
         var top4Ids = SCENARIO_TOP4;
         var restIds = Object.keys(SCENARIO_LABELS).filter(function (k) { return top4Ids.indexOf(k) === -1; });
         compact.innerHTML = '';
@@ -487,27 +817,205 @@
           otherList.appendChild(el);
         });
         var stoggle = document.getElementById('scenario-other-toggle');
-        stoggle.style.display = restIds.length ? 'flex' : 'none';
-        stoggle.querySelector('span:last-child').textContent = 'Other product types' + (restIds.length ? ' (' + restIds.length + ')' : '');
+        if (stoggle) {
+          stoggle.style.display = restIds.length ? 'flex' : 'none';
+          stoggle.querySelector('span:last-child').textContent = 'Other product types' + (restIds.length ? ' (' + restIds.length + ')' : '');
+        }
       }
 
       function updateSummary(opt) {
-        var cartValue = getCartValue();
+        var cartValue = getItemsNetTotal();
+        var itemsVat = getItemsVatAmount();
         var row = document.getElementById('protection-row');
         var totalEl = document.getElementById('total-amount');
         var payBtn = document.getElementById('pay-btn');
+        var subEl = document.getElementById('subtotal-amount');
+        if (subEl) subEl.textContent = '$' + cartValue.toFixed(2);
+
+        var itemsVatRow = document.getElementById('items-vat-row');
+        var itemsVatAmountEl = document.getElementById('items-vat-amount');
+        var itemsVatRateEl = document.getElementById('items-vat-rate');
+        if (itemsVatRow && itemsVatAmountEl && itemsVatRateEl) {
+          itemsVatRateEl.textContent = String(Math.round(GOODS_VAT_RATE * 100));
+          itemsVatAmountEl.textContent = '$' + itemsVat.toFixed(2);
+          itemsVatRow.style.display = 'flex';
+        }
+
+        var vatRow = document.getElementById('protection-vat-row');
+        var vatAmountEl = document.getElementById('protection-vat-amount');
+        var vatRateEl = document.getElementById('protection-vat-rate');
+
         if (!opt) {
           row.style.display = 'none';
-          totalEl.textContent = '$' + cartValue.toFixed(2);
-          payBtn.textContent = 'Pay $' + cartValue.toFixed(2);
+          if (vatRow) vatRow.style.display = 'none';
+          var totalNoProt = cartValue + itemsVat;
+          totalEl.textContent = '$' + totalNoProt.toFixed(2);
+          payBtn.textContent = 'Pay $' + totalNoProt.toFixed(2);
           return;
         }
         document.getElementById('protection-label').textContent = opt.label;
         document.getElementById('protection-amount').textContent = '$' + opt.premium.toFixed(2);
         row.style.display = 'flex';
-        var total = cartValue + opt.premium;
+
+        var vat = getProtectionVatAmount();
+        if (vatRow && vatAmountEl && vatRateEl) {
+          vatRateEl.textContent = String(Math.round(PROTECTION_VAT_RATE * 100));
+          vatAmountEl.textContent = '$' + vat.toFixed(2);
+          vatRow.style.display = 'flex';
+        }
+
+        var total = cartValue + itemsVat + opt.premium + vat;
         totalEl.textContent = '$' + total.toFixed(2);
         payBtn.textContent = 'Pay $' + total.toFixed(2);
+      }
+
+      function setInlinePayMsg(msg) {
+        var el = document.getElementById('pay-inline-msg');
+        if (!el) return;
+        if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+        el.style.display = 'block';
+        el.textContent = msg;
+      }
+
+      // Hover/focus policy summary popover
+      var popoverHideTimer = null;
+      function escapeHtml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function hidePolicyPopover(immediate) {
+        var pop = document.getElementById('policy-popover');
+        if (!pop) return;
+        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
+        if (immediate) { pop.style.display = 'none'; return; }
+        popoverHideTimer = setTimeout(function () { pop.style.display = 'none'; }, 80);
+      }
+
+      function showPolicyPopover(opt, anchorEl) {
+        var pop = document.getElementById('policy-popover');
+        if (!pop || !anchorEl) return;
+        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
+
+        var title = opt ? ((opt.provider_logo ? (opt.provider_logo + ' ') : '') + opt.provider_name + ' ' + opt.plan_name) : 'No protection';
+        var premium = opt ? ('$' + opt.premium.toFixed(2)) : '$0.00';
+        var coveredVal = getCoveredValue();
+        var coverageTxt = opt && opt.coverage ? ('Up to $' + Number(opt.coverage).toLocaleString()) : 'No coverage';
+        var insuredTxt = '$' + (coveredVal || 0).toFixed(2) + ' insured';
+        var summary = opt && opt.summary ? opt.summary : (opt ? 'Policy details available in Terms & Conditions.' : "You won't be covered for loss or damage.");
+        var benefits = opt && opt.benefits && opt.benefits.length ? opt.benefits : [];
+
+        pop.innerHTML =
+          '<div class="title">' + escapeHtml(title) + '</div>' +
+          '<div class="meta">' + (coverageMode === 'whole' ? 'Whole cart' : 'Selected items') + ' • ' + escapeHtml(insuredTxt) + '</div>' +
+          '<div class="row">' +
+            '<span class="pill">Premium: ' + escapeHtml(premium) + '</span>' +
+            '<span class="pill">' + escapeHtml(coverageTxt) + '</span>' +
+          '</div>' +
+          '<div class="summary">' + escapeHtml(summary) + '</div>' +
+          (benefits.length ? ('<ul>' + benefits.slice(0, 6).map(function (b) { return '<li>' + escapeHtml(b) + '</li>'; }).join('') + '</ul>') : '') +
+          '<div class="terms">' + (opt ? 'Tip: click to select. Terms shown below after selection.' : 'Tip: select a plan to see full terms.') + '</div>';
+
+        var r = anchorEl.getBoundingClientRect();
+        var gap = 10;
+        pop.style.display = 'block';
+        var pr = pop.getBoundingClientRect();
+        var left = Math.min(Math.max(12, r.left + (r.width / 2) - (pr.width / 2)), window.innerWidth - pr.width - 12);
+        var top = r.bottom + gap;
+        if (top + pr.height > window.innerHeight - 12) {
+          top = Math.max(12, r.top - pr.height - gap);
+        }
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+      }
+
+      function bindPolicyHover(el, opt) {
+        if (!el) return;
+        el.tabIndex = 0;
+        el.addEventListener('mouseenter', function () { showPolicyPopover(opt, el); });
+        el.addEventListener('mouseleave', function () { hidePolicyPopover(false); });
+        el.addEventListener('focus', function () { showPolicyPopover(opt, el); });
+        el.addEventListener('blur', function () { hidePolicyPopover(false); });
+        el.addEventListener('touchstart', function () { showPolicyPopover(opt, el); }, { passive: true });
+      }
+
+      function setStepState(stepId, state) {
+        var el = document.getElementById(stepId);
+        if (!el) return;
+        el.classList.remove('active');
+        el.classList.remove('done');
+        if (state === 'active') el.classList.add('active');
+        if (state === 'done') el.classList.add('done');
+      }
+
+      function normalizeDigits(s) {
+        return (s || '').replace(/\D/g, '');
+      }
+
+      function luhnCheck(num) {
+        var s = normalizeDigits(num);
+        if (s.length < 12) return false;
+        var sum = 0;
+        var alt = false;
+        for (var i = s.length - 1; i >= 0; i--) {
+          var n = parseInt(s.charAt(i), 10);
+          if (alt) { n *= 2; if (n > 9) n -= 9; }
+          sum += n;
+          alt = !alt;
+        }
+        return sum % 10 === 0;
+      }
+
+      function setFieldError(groupId, hasError) {
+        var fg = document.getElementById(groupId);
+        if (!fg) return;
+        fg.classList.toggle('has-error', !!hasError);
+      }
+
+      function validateCheckout() {
+        var email = (document.getElementById('email').value || '').trim();
+        var address = (document.getElementById('address').value || '').trim();
+        var city = (document.getElementById('city').value || '').trim();
+        var zip = (document.getElementById('zip').value || '').trim();
+        var card = (document.getElementById('card-number').value || '').trim();
+        var exp = (document.getElementById('card-exp').value || '').trim();
+        var cvc = (document.getElementById('card-cvc').value || '').trim();
+
+        var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        var addressOk = address.length >= 6;
+        var cityOk = city.length >= 2;
+        var zipOk = /^[A-Za-z0-9][A-Za-z0-9 \-]{2,10}$/.test(zip);
+        var cardOk = luhnCheck(card);
+        var expOk = /^(0[1-9]|1[0-2])\/\d{2}$/.test(exp);
+        var cvcOk = /^\d{3,4}$/.test(normalizeDigits(cvc));
+
+        setFieldError('fg-email', !emailOk);
+        setFieldError('fg-address', !addressOk);
+        setFieldError('fg-city', !cityOk);
+        setFieldError('fg-zip', !zipOk);
+        setFieldError('fg-card', !cardOk);
+        setFieldError('fg-exp', !expOk);
+        setFieldError('fg-cvc', !cvcOk);
+
+        return emailOk && addressOk && cityOk && zipOk && cardOk && expOk && cvcOk;
+      }
+
+      function updatePayButtonState() {
+        var btn = document.getElementById('pay-btn');
+        if (!btn) return;
+        var valid = validateCheckout();
+        var needsTerms = !!selectedOption;
+        var termsOk = !needsTerms || document.getElementById('terms-accept').checked;
+        btn.disabled = !(valid && termsOk);
+        if (!termsOk) {
+          setInlinePayMsg('Accept the selected plan’s Terms & Conditions to continue.');
+        } else {
+          setInlinePayMsg('');
+        }
       }
 
       function updateCoverageHint() {
@@ -529,26 +1037,36 @@
           return;
         }
         main.style.display = 'block';
+        // Ensure insuredIds is always a subset of cartSelectedIds
+        Array.from(insuredIds).forEach(function (id) { if (!cartSelectedIds.has(id)) insuredIds.delete(id); });
+
+        var cartSubset = cartItems.filter(function (i) { return cartSelectedIds.has(i.id); });
+        if (cartSubset.length === 0) {
+          list.innerHTML = '<div style="font-size:13px;color:#666">No items in the order. Add items in the order summary to enable protection.</div>';
+          return;
+        }
+        var premiumMap = getPerItemProtectionPremiumMap();
         var html = '';
-        cartItems.forEach(function (i) {
-          var lineTotal = i.price * i.qty;
-          var checked = selectedIds.has(i.id);
+        cartSubset.forEach(function (i) {
+          var itemPremium = premiumMap[i.id];
+          var checked = insuredIds.has(i.id);
           html += '<div class="cart-item' + (checked ? '' : ' excluded') + '">';
           html += '<input type="checkbox" data-id="' + i.id + '" ' + (checked ? 'checked' : '') + '>';
           html += '<div class="cart-item-img-wrap"><img src="' + (i.image || '') + '" alt="' + (i.name || '').replace(/"/g, '&quot;') + '" onerror="this.style.display=\'none\'"></div>';
           html += '<div class="cart-item-details" style="flex:1"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">Qty: ' + i.qty + ' × $' + i.price.toFixed(2) + '</div></div>';
-          html += '<div class="cart-item-price">$' + lineTotal.toFixed(2) + '</div></div>';
+          html += '<div class="cart-item-price">' + (selectedOption && typeof itemPremium === 'number' ? ('$' + itemPremium.toFixed(2)) : '—') + '</div></div>';
         });
         list.innerHTML = html;
         list.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
           cb.onchange = function () {
-            if (cb.checked) selectedIds.add(cb.dataset.id);
-            else selectedIds.delete(cb.dataset.id);
+            if (cb.checked) insuredIds.add(cb.dataset.id);
+            else insuredIds.delete(cb.dataset.id);
             cb.closest('.cart-item').classList.toggle('excluded', !cb.checked);
-            renderCartSidebar();
+            // Order summary remains the source of truth for cart eligibility
             updateCoverageHint();
             fetchAndRenderOptions();
             updateSummary(selectedOption);
+            if (selectedOption) renderSelectedProtectionDetails(getSelectedOptionData());
           };
         });
       }
@@ -559,34 +1077,51 @@
         if (items.length === 0) {
           var zeroOpts = FALLBACK_OPTIONS.map(function (o) { var c = {}; for (var k in o) c[k] = o[k]; c.premium = 0; return c; });
           renderProtectionCompact(zeroOpts, null, true);
+          setStepState('step-protection', 'done');
+          updatePayButtonState();
           return;
         }
+        setStepState('step-protection', 'active');
         fetch(API + '/api/quote/rate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
-          body: JSON.stringify({ items: items, scenario: scenarioSuggested ? scenarioId : undefined, jurisdiction: 'US' })
+          body: JSON.stringify({ items: items, jurisdiction: 'US' })
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             if (data.suggested_scenario) {
               scenarioId = data.suggested_scenario;
               scenarioSuggested = true;
-              renderScenarioCompact();
             }
             allOptions = (data.options && data.options.length) ? data.options : FALLBACK_OPTIONS;
             var recommended = data.recommended || allOptions[0] || null;
+            lastRecommended = recommended;
             renderProtectionCompact(allOptions, recommended);
+            setStepState('step-protection', 'done');
+            updatePayButtonState();
           })
           .catch(function () {
             allOptions = FALLBACK_OPTIONS;
+            lastRecommended = allOptions[0] || null;
             renderProtectionCompact(allOptions, allOptions[0]);
+            setStepState('step-protection', 'done');
+            updatePayButtonState();
           });
       }
 
       document.querySelectorAll('input[name="coverage-mode"]').forEach(function (radio) {
         radio.onchange = function () {
           coverageMode = radio.value;
-          if (coverageMode === 'whole') selectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+          if (coverageMode === 'whole') {
+            cartSelectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+            insuredIds = new Set(cartItems.map(function (i) { return i.id; }));
+          } else {
+            // When entering "Selected items" mode, default to insuring all items currently in the cart.
+            // Keep any previous insured choices, but always constrain them to what's in the cart.
+            if (!insuredIds || insuredIds.size === 0) insuredIds = new Set(cartSelectedIds);
+            Array.from(insuredIds).forEach(function (id) { if (!cartSelectedIds.has(id)) insuredIds.delete(id); });
+            if (insuredIds.size === 0) insuredIds = new Set(cartSelectedIds);
+          }
           renderCartSidebar();
           renderCartItemsMain();
           updateCoverageHint();
@@ -595,30 +1130,41 @@
         };
       });
 
-      document.getElementById('scenario-other-toggle').onclick = function () {
-        this.classList.toggle('open');
-        document.getElementById('scenario-other-list').classList.toggle('show');
-      };
-      document.getElementById('protection-other-toggle').onclick = function () {
-        this.classList.toggle('open');
-        document.getElementById('protection-other-list').classList.toggle('show');
-      };
+      var scenarioToggle = document.getElementById('scenario-other-toggle');
+      if (scenarioToggle) {
+        scenarioToggle.onclick = function () {
+          this.classList.toggle('open');
+          document.getElementById('scenario-other-list').classList.toggle('show');
+        };
+      }
+      var protectionToggle = document.getElementById('protection-other-toggle');
+      if (protectionToggle) {
+        protectionToggle.onclick = function () {
+          this.classList.toggle('open');
+          document.getElementById('protection-other-list').classList.toggle('show');
+        };
+      }
 
       var orderId = 'ORD_' + Date.now();
 
       function renderItemsInvoice() {
-        var cartVal = getCartValue();
+        var items = getCheckoutItems();
+        var cartVal = getItemsNetTotal();
+        var itemsVat = getItemsVatAmount();
+        var gross = roundMoney(cartVal + itemsVat);
         var html = '';
         html += '<div class="row"><strong>Invoice #</strong><span>' + orderId + '</span></div>';
         html += '<div class="row"><strong>Date</strong><span>' + new Date().toLocaleDateString() + '</span></div>';
-        html += '<div class="row"><strong>Customer</strong><span>customer@example.com</span></div>';
-        html += '<div class="row"><strong>Address</strong><span>123 Main St, New York, NY</span></div>';
+        html += '<div class="row"><strong>Customer</strong><span>' + ((document.getElementById('email').value || 'customer@example.com')) + '</span></div>';
+        html += '<div class="row"><strong>Address</strong><span>' + ((document.getElementById('address').value || '—')) + '</span></div>';
         html += '<div class="row" style="border-top:1px solid #ddd;margin-top:8px;padding-top:8px"></div>';
-        cartItems.forEach(function (i) {
+        items.forEach(function (i) {
           html += '<div class="row"><span>' + i.name + ' (x' + i.qty + ')</span><span>$' + (i.price * i.qty).toFixed(2) + '</span></div>';
         });
         html += '<div class="row"><span>Shipping</span><span>Free</span></div>';
-        html += '<div class="row" style="font-weight:700;border-top:1px solid #ddd;margin-top:8px;padding-top:8px"><span>Total</span><span>$' + cartVal.toFixed(2) + '</span></div>';
+        html += '<div class="row"><span>Subtotal</span><span>$' + cartVal.toFixed(2) + '</span></div>';
+        html += '<div class="row"><span>VAT (' + Math.round(GOODS_VAT_RATE * 100) + '%)</span><span>$' + itemsVat.toFixed(2) + '</span></div>';
+        html += '<div class="row" style="font-weight:700;border-top:1px solid #ddd;margin-top:8px;padding-top:8px"><span>Total</span><span>$' + gross.toFixed(2) + '</span></div>';
         document.getElementById('items-invoice').innerHTML = html;
       }
 
@@ -664,13 +1210,26 @@
       }
 
       document.getElementById('pay-btn').onclick = function () {
+        setInlinePayMsg('');
+        document.getElementById('terms-accept-row').classList.remove('attention');
+        if (!validateCheckout()) {
+          setInlinePayMsg('Check the highlighted fields, then try again.');
+          document.getElementById('shipping-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setStepState('step-shipping', 'active');
+          setStepState('step-payment', 'active');
+          return;
+        }
         if (selectedOption && !document.getElementById('terms-accept').checked) {
-          alert('Please agree to the Terms & Conditions of the selected plan before proceeding.');
+          setInlinePayMsg('Accept the selected plan’s Terms & Conditions to continue.');
+          document.getElementById('terms-accept-row').classList.add('attention');
+          document.getElementById('terms-accept-row').scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
         }
         var btn = document.getElementById('pay-btn');
         btn.disabled = true;
         btn.textContent = 'Processing…';
+        setStepState('step-shipping', 'done');
+        setStepState('step-payment', 'active');
 
         renderItemsInvoice();
         document.getElementById('documents-section').classList.add('show');
@@ -680,8 +1239,9 @@
           document.getElementById('success-banner').textContent = 'Order complete. No protection selected. Items invoice generated.';
           document.getElementById('insurance-invoice-card').style.display = 'none';
           document.getElementById('insurance-contract-card').style.display = 'none';
-          btn.textContent = 'Paid $' + getCartValue().toFixed(2);
+          btn.textContent = 'Paid $' + (getItemsNetTotal() + getItemsVatAmount()).toFixed(2);
           btn.disabled = false;
+          setStepState('step-payment', 'done');
           return;
         }
 
@@ -704,12 +1264,22 @@
             document.getElementById('success-banner').textContent = 'Order complete. Policy ' + res.policy_id + ' issued with ' + (res.provider_name || selectedOption.label) + '.';
             document.getElementById('insurance-invoice-card').style.display = 'block';
             document.getElementById('insurance-contract-card').style.display = 'block';
+            var certLink = document.getElementById('btn-view-ipid');
+            if (certLink && res.certificate_url) {
+              certLink.href = res.certificate_url;
+              certLink.style.display = 'inline';
+            } else if (certLink) certLink.style.display = 'none';
             return fetch(API + '/api/policy/' + res.policy_id, { headers: { 'X-API-Key': 'demo' } });
           })
           .then(function (r) { return r.json(); })
           .then(function (policy) {
             renderInsuranceInvoice(policy, selectedOption);
             renderInsuranceContract(policy);
+            var certLink = document.getElementById('btn-view-ipid');
+            if (certLink && policy.certificate_url) {
+              certLink.href = policy.certificate_url;
+              certLink.style.display = 'inline';
+            }
           })
           .catch(function () {
             document.getElementById('success-banner').textContent = 'Order complete. Protection added: ' + selectedOption.label + ' (policy details unavailable).';
@@ -719,7 +1289,9 @@
             renderInsuranceContract({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, plan_id: selectedOption.plan_id, coverage_details: {}, transaction_id: orderId, customer: { email: 'customer@example.com' }, recorded_at: new Date().toISOString() });
           })
           .finally(function () {
-            btn.textContent = 'Paid $' + (getCartValue() + (selectedOption ? selectedOption.premium : 0)).toFixed(2);
+            btn.textContent = 'Paid $' + (getItemsNetTotal() + getItemsVatAmount() + (selectedOption ? (selectedOption.premium + getProtectionVatAmount()) : 0)).toFixed(2);
+            btn.disabled = false;
+            setStepState('step-payment', 'done');
           });
       };
 
@@ -753,10 +1325,42 @@
         document.getElementById('btn-desktop').classList.remove('active');
       };
 
+      // Input formatting + live validation
+      function formatCardNumber(v) {
+        var d = normalizeDigits(v).slice(0, 19);
+        return d.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+      }
+      function formatExpiry(v) {
+        var d = normalizeDigits(v).slice(0, 4);
+        if (d.length <= 2) return d;
+        return d.slice(0, 2) + '/' + d.slice(2);
+      }
+
+      document.getElementById('card-number').addEventListener('input', function () {
+        this.value = formatCardNumber(this.value);
+        updatePayButtonState();
+      });
+      document.getElementById('card-exp').addEventListener('input', function () {
+        this.value = formatExpiry(this.value);
+        updatePayButtonState();
+      });
+      document.getElementById('card-cvc').addEventListener('input', function () { updatePayButtonState(); });
+      ['email', 'address', 'city', 'zip', 'phone'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function () { updatePayButtonState(); });
+      });
+
+      document.getElementById('terms-accept').addEventListener('change', function () {
+        document.getElementById('terms-accept-row').classList.toggle('attention', selectedOption && !this.checked);
+        updatePayButtonState();
+      });
+
       renderCartSidebar();
       renderCartItemsMain();
-      renderScenarioCompact();
       fetchAndRenderOptions();
+      updateSummary(selectedOption);
+      updatePayButtonState();
     })();
   </script>
 </body>

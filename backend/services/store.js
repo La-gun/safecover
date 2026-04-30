@@ -8,6 +8,7 @@ const DATA_DIR = path.join(__dirname, '../../data');
 const POLICIES_FILE = path.join(DATA_DIR, 'policies.json');
 const CLAIMS_FILE = path.join(DATA_DIR, 'claims.json');
 const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
+const AUDIT_FILE = path.join(DATA_DIR, 'audit.json');
 
 let dbModule = null;
 try {
@@ -53,7 +54,9 @@ function policies() {
 function savePolicy(policy) {
   if (useDb()) return dbModule.savePolicyToDb(policy);
   const policies = readJson(POLICIES_FILE, []);
-  policies.push(policy);
+  const idx = policies.findIndex((p) => p.policy_id === policy.policy_id);
+  if (idx >= 0) policies[idx] = policy;
+  else policies.push(policy);
   writeJson(POLICIES_FILE, policies);
   return policy;
 }
@@ -71,7 +74,9 @@ function claims() {
 function saveClaim(claim) {
   if (useDb()) return dbModule.saveClaimToDb(claim);
   const claims = readJson(CLAIMS_FILE, []);
-  claims.push(claim);
+  const idx = claims.findIndex((c) => c.claim_id === claim.claim_id);
+  if (idx >= 0) claims[idx] = claim;
+  else claims.push(claim);
   writeJson(CLAIMS_FILE, claims);
   return claim;
 }
@@ -88,10 +93,13 @@ function updateClaim(id, updates) {
   return null;
 }
 
+const MAX_ANALYTICS_EVENTS = 999;
+
 function recordAnalytics(event) {
   const data = readJson(ANALYTICS_FILE, { quotes: 0, binds: 0, claims: 0, events: [] });
-  data.events = (data.events || []).slice(-999);
-  data.events.push({ ...event, ts: new Date().toISOString() });
+  const events = (data.events || []).slice(-MAX_ANALYTICS_EVENTS);
+  events.push({ ...event, ts: new Date().toISOString() });
+  data.events = events;
   if (event.type === 'quote') data.quotes = (data.quotes || 0) + 1;
   if (event.type === 'bind') data.binds = (data.binds || 0) + 1;
   if (event.type === 'claim') data.claims = (data.claims || 0) + 1;
@@ -105,7 +113,27 @@ function getAnalytics() {
 
 function getAuditLog(entityType, entityId, limit = 50) {
   if (useDb() && dbModule.getAuditLog) return dbModule.getAuditLog(entityType, entityId, limit);
-  return [];
+  const all = readJson(AUDIT_FILE, []);
+  const filtered = all.filter((e) => e && e.entityType === entityType && e.entityId === entityId);
+  return filtered.slice(-Math.max(1, limit));
+}
+
+function appendAuditLog(entityType, entityId, entry) {
+  if (!entityType || !entityId) return null;
+  const safeEntry = {
+    entityType,
+    entityId,
+    ts: new Date().toISOString(),
+    ...entry,
+  };
+  // Prefer DB audit if available
+  if (useDb() && dbModule.appendAuditLog) return dbModule.appendAuditLog(entityType, entityId, safeEntry);
+  const all = readJson(AUDIT_FILE, []);
+  all.push(safeEntry);
+  // Keep file bounded
+  const bounded = all.slice(-5000);
+  writeJson(AUDIT_FILE, bounded);
+  return safeEntry;
 }
 
 function migrateJsonToDb() {
@@ -141,4 +169,5 @@ module.exports = {
   recordAnalytics,
   getAnalytics,
   getAuditLog,
+  appendAuditLog,
 };

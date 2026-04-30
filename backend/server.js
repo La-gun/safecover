@@ -9,6 +9,7 @@ const insurer = require('./services/insurer');
 const compliance = require('./services/compliance');
 const fraud = require('./services/fraud');
 const partners = require('./services/partners');
+const coverageOptimizer = require('./services/coverageOptimizer');
 const { authMiddleware } = require('./middleware/auth');
 const { rateLimitQuote, rateLimitBind } = require('./middleware/rateLimit');
 
@@ -33,6 +34,26 @@ app.use((err, req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, '../frontend')));
+
+/** Build UK IPID-compliant certificate URL for a policy */
+function buildCertificateUrl(req, policy) {
+  const base = (req && req.get && req.get('host'))
+    ? `${req.protocol || 'http'}://${req.get('host')}`
+    : (process.env.BASE_URL || 'http://localhost:3000');
+  const cov = policy.coverage_details || {};
+  const params = new URLSearchParams({
+    policy_id: policy.policy_id || '',
+    premium: String(policy.premium ?? 0),
+    sum_insured: String(cov.max_value ?? 0),
+    total_sum: String(cov.max_value ?? 0),
+    effective: (policy.recorded_at || new Date().toISOString()).slice(0, 10),
+    duration: cov.duration || '12 months',
+    excess: '50',
+    insurer: policy.provider_name || 'SafeCover Insurance Ltd',
+    items: 'Insured jewellery/watch as per policy schedule',
+  });
+  return `${base}/ipid-certificate.html?${params.toString()}`;
+}
 
 const err = (res, status, msg, code = 'VALIDATION_ERROR') =>
   res.status(status).json({ error: msg, code });
@@ -133,14 +154,127 @@ app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
   }
 });
 
-function aiRateOptions(options, cartValue) {
+function clamp01(n) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+function providerTrustScore(providerId) {
+  // Proxy until we have real telemetry / financial strength ratings.
+  const base = {
+    safecover: 0.90,
+    assurex: 0.88,
+    shieldpro: 0.87,
+    covermax: 0.86,
+  };
+  return clamp01(base[providerId] ?? 0.85);
+}
+
+function estimateClaimsExperienceScore({ scenarioId, option }) {
+  const benefitsText = (option?.benefits || []).join(' ').toLowerCase();
+  const summaryText = (option?.summary || '').toLowerCase();
+  const hasInstant = benefitsText.includes('instant') || summaryText.includes('instant');
+  const hasSameDay = benefitsText.includes('same-day') || summaryText.includes('same-day');
+  const hasConcierge = benefitsText.includes('concierge') || summaryText.includes('concierge');
+  const hasDedicated = benefitsText.includes('dedicated') || summaryText.includes('dedicated');
+  const hasPriority = benefitsText.includes('priority') || summaryText.includes('priority');
+
+  const baseDocsByScenario = {
+    gadgets: 3,
+    jewellery: 4,
+    cyber: 3,
+    events: 2,
+    hospitality: 2,
+    logistics: 2,
+    retail: 2,
+    food: 1,
+    healthcare: 2,
+    mobility: 2,
+    parametric: 0,
+  };
+  const docsRequired = Math.max(
+    0,
+    (baseDocsByScenario[scenarioId] ?? 2) - (hasConcierge ? 1 : 0) - (hasDedicated ? 1 : 0) - (hasPriority ? 1 : 0)
+  );
+  let settleDaysP50 = 10;
+  if (scenarioId === 'parametric') settleDaysP50 = 1;
+  else if (scenarioId === 'food') settleDaysP50 = 2;
+  else if (scenarioId === 'events') settleDaysP50 = 5;
+  else if (scenarioId === 'retail' || scenarioId === 'logistics') settleDaysP50 = 7;
+  else if (scenarioId === 'gadgets' || scenarioId === 'jewellery') settleDaysP50 = 12;
+  if (hasInstant) settleDaysP50 = Math.max(1, Math.round(settleDaysP50 * 0.4));
+  if (hasSameDay) settleDaysP50 = Math.min(settleDaysP50, 1);
+
+  const docsScore = clamp01(1 - docsRequired * 0.18);
+  const settleScore = clamp01(1 - settleDaysP50 / 20);
+  return clamp01(docsScore * 0.55 + settleScore * 0.45);
+}
+
+function deductibleScoreProxy({ scenarioId, coverage }) {
+  // Proxy deductible when not explicitly modeled per plan.
+  // Gadgets/jewellery generally have higher excess; others assume low/no excess.
+  const limit = Number(coverage) || 0;
+  if (!limit) return 0.7;
+  const ratio = (scenarioId === 'gadgets' || scenarioId === 'jewellery') ? 0.02 : 0.0; // 2% vs 0%
+  return clamp01(1 - ratio * 4); // 0% => 1, 5% => 0.8, 20% => 0.2
+}
+
+function marginScoreProxy(providerId, premium) {
+  const p = providerMap.get(providerId);
+  const commissionRate = p?.commission_rate ?? 0.15;
+  const marginRate = clamp01((commissionRate ?? 0) / 0.2); // 20% => 1
+  const affordabilityPenalty = clamp01(1 - (Number(premium) || 0) / 2.0); // keep very high premiums in check
+  return clamp01(marginRate * 0.7 + affordabilityPenalty * 0.3);
+}
+
+function aiRateOptions(options, cartValue, scenarioId = 'retail') {
   if (!options || options.length === 0) return [];
-  const adequate = options.filter((o) => (o.coverage || 0) >= cartValue);
-  const inadequate = options.filter((o) => (o.coverage || 0) < cartValue);
-  const sortByPremium = (a, b) => (a.premium || 0) - (b.premium || 0);
-  adequate.sort(sortByPremium);
-  inadequate.sort((a, b) => (b.coverage || 0) - (a.coverage || 0));
-  return adequate.concat(inadequate);
+  const value = Number(cartValue) || 0;
+
+  const scored = options.map((o) => {
+    const coverage = Number(o.coverage) || 0;
+    const premium = Number(o.premium) || 0;
+    const coverageRatio = value > 0 ? coverage / value : 0;
+    const coverageScore = clamp01(coverageRatio >= 1 ? 1 : coverageRatio);
+
+    // Price sensitivity as a secondary factor (not "lowest price wins").
+    const premiumToValue = value > 0 ? premium / value : 1;
+    const affordabilityScore = clamp01(1 - premiumToValue * 40); // 0.3% => high, 3% => low
+
+    const trust = providerTrustScore(o.provider_id);
+    const claims = estimateClaimsExperienceScore({ scenarioId, option: o });
+    const deductible = deductibleScoreProxy({ scenarioId, coverage });
+    const margin = marginScoreProxy(o.provider_id, premium);
+
+    // Priority: claims experience + trust + adequate cover; price is secondary.
+    const overall = clamp01(
+      claims * 0.35 +
+      trust * 0.20 +
+      coverageScore * 0.25 +
+      deductible * 0.10 +
+      affordabilityScore * 0.05 +
+      margin * 0.05
+    );
+
+    return {
+      ...o,
+      ai: {
+        scenario: scenarioId,
+        scores: {
+          overall: Number(overall.toFixed(4)),
+          claims: Number(claims.toFixed(4)),
+          trust: Number(trust.toFixed(4)),
+          coverage: Number(coverageScore.toFixed(4)),
+          deductible: Number(deductible.toFixed(4)),
+          affordability: Number(affordabilityScore.toFixed(4)),
+          margin: Number(margin.toFixed(4)),
+        },
+      },
+    };
+  });
+
+  scored.sort((a, b) => (b.ai.scores.overall - a.ai.scores.overall) || ((a.premium || 0) - (b.premium || 0)));
+  return scored;
 }
 
 const SCENARIO_LABELS = {
@@ -150,8 +284,11 @@ const SCENARIO_LABELS = {
   hospitality: 'Hospitality & Travel',
   food: 'Food & Delivery',
   healthcare: 'Healthcare',
+  cyber: 'Cyber & Digital',
   events: 'Events & Ticketing',
   mobility: 'Mobility & Gig Economy',
+  parametric: 'Parametric (Climate/Events)',
+  jewellery: 'Jewellery & Watch',
 };
 
 function aiSuggestScenario(items) {
@@ -160,6 +297,7 @@ function aiSuggestScenario(items) {
     .join(' ');
   if (!text) return 'retail';
   const rules = [
+    { keywords: ['ring', 'necklace', 'bracelet', 'watch', 'jewellery', 'jewelry', 'diamond', 'gold', 'silver', 'rolex', 'cartier'], scenario: 'jewellery' },
     { keywords: ['laptop', 'phone', 'tablet', 'headphone', 'cable', 'charger', 'electronic', 'gadget', 'device', 'usb', 'stand'], scenario: 'gadgets' },
     { keywords: ['food', 'meal', 'delivery', 'restaurant', 'grocer'], scenario: 'food' },
     { keywords: ['ticket', 'event', 'concert', 'show', 'game'], scenario: 'events' },
@@ -187,7 +325,7 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, suggestedScenario);
     const options = buildQuoteOptions(actuarialQuotes);
-    const ranked = aiRateOptions(options, value);
+    const ranked = aiRateOptions(options, value, suggestedScenario);
 
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
@@ -204,6 +342,77 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
   }
 });
 
+/**
+ * Coverage recommendations endpoint (rules-first + deterministic ranking)
+ * - If caller passes `candidates`, we rank them.
+ * - Else, we build candidates from `checkout.items` using category->scenario mapping.
+ */
+app.post('/api/coverage/recommendations', authMiddleware, rateLimitQuote, (req, res) => {
+  try {
+    const correlationId = req.get('X-Correlation-Id') || req.body?.correlationId || `corr_${Date.now()}`;
+    const { checkout, candidates, policyPreference } = req.body || {};
+
+    let builtCandidates = candidates;
+    if (!Array.isArray(builtCandidates) || builtCandidates.length === 0) {
+      const items = Array.isArray(checkout?.items) ? checkout.items : [];
+      // Reuse scenario suggestion if categories are missing
+      const scenarioHint = aiSuggestScenario(
+        items.map((i) => ({
+          name: i.name,
+          description: i.description,
+          value: i.unitPrice ?? i.value,
+        }))
+      );
+      builtCandidates = coverageOptimizer.buildCandidatesFromCheckout({
+        checkout,
+        scenarioHint,
+        currency: 'NGN',
+      });
+    }
+
+    const result = coverageOptimizer.recommend({
+      correlationId,
+      candidates: builtCandidates,
+      policyPreference: policyPreference || { defaultStructure: 'PER_LINE', allowPerItemIfRequired: true },
+    });
+
+    // Minimal audit trail (avoid raw PII)
+    const checkoutId = checkout?.checkoutId || req.body?.checkoutId || 'unknown';
+    store.recordAnalytics({
+      type: 'quote',
+      partner_id: req.partnerId,
+      correlation_id: correlationId,
+      checkout_id: checkoutId,
+      event: 'coverage_recommendations',
+    });
+    try {
+      (result.recommendations || []).forEach((r) => {
+        store.appendAuditLog('coverage_recommendation', `${checkoutId}:${r.productId}`, {
+          correlation_id: correlationId,
+          product_id: r.productId,
+          selected: r.selected,
+          scores: r.scores,
+          policy_structure: r.policyStructure,
+          model_version: r.audit?.modelVersion,
+        });
+      });
+    } catch (e) {
+      // Non-fatal
+      console.warn('Audit append failed:', e.message);
+    }
+
+    res.json({
+      correlationId,
+      checkoutId,
+      recommendations: result.recommendations || [],
+      warnings: result.warnings || [],
+    });
+  } catch (e) {
+    console.error('Coverage recommendations error:', e);
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
 app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
@@ -216,6 +425,9 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
     const scenario = getScenario(scenarioId);
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
     const quotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
+    if (!quotes.length) {
+      return err(res, 503, 'No quotes available (no providers/plans configured)', 'NO_QUOTES');
+    }
     const best = quotes.reduce((a, b) => (a.premium < b.premium ? a : b));
     const premium = best.premium;
 
@@ -305,6 +517,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       recorded_at: new Date().toISOString(),
       partner_id: req.partnerId,
     };
+    policy.certificate_url = buildCertificateUrl(req, policy);
 
     store.savePolicy(policy);
     store.recordAnalytics({ type: 'bind', policy_id: policyId, premium, commission, partner_id: req.partnerId });
@@ -318,6 +531,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       provider_id: policy.provider_id,
       plan_id: policy.plan_id,
       provider_name: policy.provider_name,
+      certificate_url: policy.certificate_url,
       smart_contract_url: bcResult.smart_contract_url,
       contract_address: bcResult.contract_address,
       tx_hash: bcResult.tx_hash,
@@ -492,7 +706,19 @@ app.get('/api/policy/:id', authMiddleware, (req, res) => {
   try {
     const policy = store.getPolicy(req.params.id);
     if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+    if (!policy.certificate_url) policy.certificate_url = buildCertificateUrl(req, policy);
     res.json(policy);
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/api/policy/:id/certificate', (req, res) => {
+  try {
+    const policy = store.getPolicy(req.params.id);
+    if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+    const url = policy.certificate_url || buildCertificateUrl(req, policy);
+    res.redirect(302, url);
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }

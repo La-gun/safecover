@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insurance Product Information Document (IPID) – Jewellery & Watch Insurance</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11pt; line-height: 1.4; color: #1a1a1a; max-width: 210mm; margin: 0 auto; padding: 16px; }
+    .ipid-header { text-align: center; border-bottom: 2px solid #1a1a1a; padding-bottom: 12px; margin-bottom: 16px; }
+    .ipid-title { font-size: 14pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ipid-subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+    .section { margin-bottom: 14px; }
+    .section-title { font-weight: 700; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; color: #333; }
+    .section-content { font-size: 10pt; }
+    .section-content ul { margin: 4px 0; padding-left: 18px; }
+    .section-content li { margin: 2px 0; }
+    .insurer-block { background: #f5f5f5; padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; }
+    .insurer-block strong { display: block; margin-bottom: 4px; }
+    .insurer-block span { font-size: 9pt; color: #555; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media print { body { padding: 0; } .section { break-inside: avoid; } }
+    .reg-notice { font-size: 9pt; color: #666; margin-top: 16px; padding-top: 12px; border-top: 1px solid #ddd; }
+    .item-list { font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="ipid-header">
+    <div class="ipid-title">Insurance Product Information Document</div>
+    <div class="ipid-subtitle">(IPID) – Standard format per FCA ICOBS 6 Annex III / IDD</div>
+  </div>
+
+  <div class="insurer-block">
+    <strong id="insurer-name">SafeCover Insurance Ltd</strong>
+    <span id="insurer-fca">FCA Registration: 123456</span><br>
+    <span id="insurer-address">123 Insurance House, London EC2V 7HH</span><br>
+    <span id="insurer-contact">Tel: 0800 123 4567 | Email: enquiries@safecover.co.uk</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">1. Type of Insurance</div>
+    <div class="section-content">
+      <strong>Product:</strong> Jewellery & Watch Insurance – All Risks Cover<br>
+      <strong>Description:</strong> This policy provides worldwide cover for accidental damage, mechanical breakdown, theft and loss of specified jewellery and watches. Cover applies anywhere in the world, subject to policy terms.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2. Insured Item(s)</div>
+    <div class="section-content item-list" id="insured-items">
+      <!-- Populated by JS: e.g. "10-carat diamond ring", "Rolex Submariner" -->
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">3. What is Insured? (Summary of Cover)</div>
+    <div class="section-content">
+      <ul>
+        <li><strong>Accidental Damage:</strong> Repair or replacement of the item if accidentally damaged (e.g. knocked, dropped, crushed).</li>
+        <li><strong>Theft:</strong> Replacement if stolen. A valid police report and crime reference number must be provided.</li>
+        <li><strong>Loss (proven theft):</strong> Replacement where loss is evidenced as theft (police report required).</li>
+        <li><strong>Mechanical Breakdown:</strong> Repair or replacement of watches for mechanical failure (subject to policy limits).</li>
+        <li><strong>Worldwide Cover:</strong> Insured anywhere in the world, subject to policy terms and exclusions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">4. What is Not Insured? (Main Exclusions)</div>
+    <div class="section-content">
+      <ul>
+        <li><strong>Loss not proved as theft:</strong> Unexplained disappearance, misplacement or loss where theft cannot be evidenced.</li>
+        <li><strong>Wear and tear:</strong> Gradual deterioration, scratching, or damage from normal use.</li>
+        <li><strong>Unattended items:</strong> Theft from an unattended vehicle or from a location where the item was left unattended (e.g. public changing room, gym locker).</li>
+        <li><strong>Warranty/servicing:</strong> Damage covered by manufacturer warranty or due to routine servicing or repair.</li>
+        <li><strong>Intentional acts:</strong> Damage or loss caused deliberately by the policyholder or a member of their household.</li>
+        <li><strong>War, terrorism, confiscation:</strong> Loss or damage arising from war, terrorism, civil unrest, or confiscation by authorities.</li>
+        <li><strong>Unspecified items:</strong> Items not listed on the policy schedule or exceeding the sum insured.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">5. Policy Limits</div>
+    <div class="section-content">
+      Maximum cover per item: <strong id="sum-insured">£0</strong><br>
+      Total sum insured: <strong id="total-sum-insured">£0</strong><br>
+      Excess (deductible): <strong id="excess">£50</strong> per claim (or as stated in policy schedule).
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">6. Obligations at Contract Start</div>
+    <div class="section-content">
+      <ul>
+        <li>You must be aged 18 or over and resident in the United Kingdom.</li>
+        <li>Provide accurate information about the insured item(s), including description, value and proof of purchase/valuation.</li>
+        <li>Declare any previous claims, losses or refusals of insurance.</li>
+        <li>Ensure items are stored securely when not in use (e.g. safe, locked cabinet).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">7. Obligations During the Contract Term</div>
+    <div class="section-content">
+      <ul>
+        <li>Notify us of any change in circumstances that may affect the risk (e.g. change of address, new high-value item).</li>
+        <li>Keep items in secure storage when not worn; do not leave unattended in vehicles or public places.</li>
+        <li>Maintain proof of purchase and valuation documents.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">8. Obligations When Claiming</div>
+    <div class="section-content">
+      <ul>
+        <li><strong>Report loss/theft within 24 hours</strong> to the police and to us.</li>
+        <li>Obtain a police report and crime reference number for theft or attempted theft.</li>
+        <li>Provide: proof of purchase, valuation certificate, photographs, and any other evidence requested.</li>
+        <li>Cooperate fully with our claims investigation.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="section">
+      <div class="section-title">9. Premium & Payment</div>
+      <div class="section-content">
+        Premium: <strong id="premium">£0</strong><br>
+        Payment: <strong id="payment-freq">Annually</strong><br>
+        <span id="installment-note" style="display:none">Financed by instalments. Interest may apply.</span>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">10. Term & Cancellation</div>
+      <div class="section-content">
+        Effective: <strong id="effective-date">—</strong><br>
+        Expires: <strong id="expiry-date">—</strong><br>
+        <strong>14-day cooling-off:</strong> You may cancel within 14 days of inception for a full refund (if no claim made).
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">11. Claims Procedure</div>
+    <div class="section-content">
+      Contact: <strong>0800 123 4567</strong> or <strong>claims@safecover.co.uk</strong><br>
+      Required documents: Proof of purchase, valuation certificate, police report (for theft), photographs of item.
+    </div>
+  </div>
+
+  <div class="reg-notice">
+    <strong>Regulatory Information:</strong> This document is a summary only. It does not replace the full policy wording. For complete terms, conditions, exclusions and limits, please refer to the full policy document. This IPID follows the FCA/IDD Annex III structure for non-life insurance.
+  </div>
+
+  <script>
+    (function() {
+      var params = new URLSearchParams(location.search);
+      var policyId = params.get('policy_id') || '—';
+      var insurer = params.get('insurer') || 'SafeCover Insurance Ltd';
+      var fca = params.get('fca') || '123456';
+      var items = params.get('items') || 'Specified jewellery/watch';
+      var sumInsured = params.get('sum_insured') || '0';
+      var totalSum = params.get('total_sum') || sumInsured;
+      var premium = params.get('premium') || '0';
+      var effective = params.get('effective') || new Date().toISOString().slice(0,10);
+      var duration = params.get('duration') || '12 months';
+      var excess = params.get('excess') || '50';
+
+      var start = new Date(effective);
+      var end = new Date(start);
+      var dur = (duration || '').toLowerCase();
+      if (dur.indexOf('12') >= 0 || dur.indexOf('year') >= 0) end.setFullYear(end.getFullYear() + 1);
+      else if (dur.indexOf('6') >= 0 && dur.indexOf('month') >= 0) end.setMonth(end.getMonth() + 6);
+      else if (dur.indexOf('day') >= 0) { var d = parseInt(duration, 10) || 7; end.setDate(end.getDate() + d); }
+      else end.setMonth(end.getMonth() + 1);
+      var expiry = end.toISOString().slice(0,10);
+
+      document.getElementById('insurer-name').textContent = insurer;
+      document.getElementById('insured-items').innerHTML = items.split('|').map(function(i){ return '• ' + i.trim(); }).join('<br>') || '• Specified jewellery/watch';
+      document.getElementById('sum-insured').textContent = '£' + parseFloat(sumInsured).toLocaleString();
+      document.getElementById('total-sum-insured').textContent = '£' + parseFloat(totalSum).toLocaleString();
+      document.getElementById('excess').textContent = '£' + excess;
+      document.getElementById('premium').textContent = '£' + parseFloat(premium).toFixed(2);
+      document.getElementById('effective-date').textContent = effective;
+      document.getElementById('expiry-date').textContent = expiry;
+    })();
+  </script>
+</body>
+</html>
