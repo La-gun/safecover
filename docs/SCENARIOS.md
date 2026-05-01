@@ -15,6 +15,8 @@ SafeCover supports embedded microinsurance across different verticals. Each scen
 
 ## API Usage
 
+For **in-store POS**, send the same `scenario` (and `jurisdiction` if needed) on **`POST /api/pos/enhanced`** with `operation: "quote"` or `"bind"` — see [INTEGRATION-POS.md](INTEGRATION-POS.md).
+
 **Quote with scenario:**
 ```json
 POST /api/quote

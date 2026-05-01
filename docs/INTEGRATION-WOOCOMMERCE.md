@@ -188,3 +188,10 @@ function safecover_webhook_handler($request) {
 | Display | PHP-rendered checkbox | JS-rendered widget |
 | Bind | On thank-you (PHP) | On checkbox change (JS) |
 | Confirm | `woocommerce_payment_complete` | Same |
+
+---
+
+## See also
+
+- [POS integration](INTEGRATION-POS.md) — retail POS via `POST /api/pos/enhanced` (separate from this web checkout flow)
+- [API reference](API.md) — request/response details including POS Enhanced

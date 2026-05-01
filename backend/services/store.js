@@ -9,6 +9,7 @@ const POLICIES_FILE = path.join(DATA_DIR, 'policies.json');
 const CLAIMS_FILE = path.join(DATA_DIR, 'claims.json');
 const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');
 const AUDIT_FILE = path.join(DATA_DIR, 'audit.json');
+const QUOTES_FILE = path.join(DATA_DIR, 'quotes.json');
 
 let dbModule = null;
 try {
@@ -48,7 +49,7 @@ function useDb() {
 
 function policies() {
   if (useDb()) return dbModule.policiesFromDb();
-  return readJson(POLICIES_FILE, []);
+  return readJson(POLICIES_FILE, []).map(normalizePolicy);
 }
 
 function savePolicy(policy) {
@@ -63,7 +64,58 @@ function savePolicy(policy) {
 
 function getPolicy(id) {
   if (useDb()) return dbModule.getPolicyFromDb(id);
-  return readJson(POLICIES_FILE, []).find((p) => p.policy_id === id);
+  const p = readJson(POLICIES_FILE, []).find((x) => x.policy_id === id);
+  return p ? normalizePolicy(p) : null;
+}
+
+function normalizePolicy(p) {
+  if (!p) return p;
+  return {
+    ...p,
+    status: p.status || 'ACTIVE',
+    regulatory_snapshot: p.regulatory_snapshot || null,
+  };
+}
+
+function updatePolicy(policyId, patch) {
+  if (useDb()) return dbModule.updatePolicyInDb(policyId, patch);
+  const all = readJson(POLICIES_FILE, []);
+  const idx = all.findIndex((p) => p.policy_id === policyId);
+  if (idx < 0) return null;
+  all[idx] = { ...normalizePolicy(all[idx]), ...patch };
+  writeJson(POLICIES_FILE, all);
+  return all[idx];
+}
+
+function getPolicyByBindIdempotency(key) {
+  if (!key) return null;
+  if (useDb()) return dbModule.getPolicyByBindIdempotencyFromDb(key);
+  return readJson(POLICIES_FILE, []).find((p) => p.bind_idempotency_key === key) || null;
+}
+
+function saveQuoteRecord(record) {
+  if (useDb()) return dbModule.saveQuoteRecordToDb(record);
+  const all = readJson(QUOTES_FILE, []);
+  const idx = all.findIndex((q) => q.quote_id === record.quote_id);
+  if (idx >= 0) all[idx] = record;
+  else all.push(record);
+  writeJson(QUOTES_FILE, all);
+  return record;
+}
+
+function getQuoteRecord(quoteId) {
+  if (useDb()) return dbModule.getQuoteRecordFromDb(quoteId);
+  return readJson(QUOTES_FILE, []).find((q) => q.quote_id === quoteId) || null;
+}
+
+function consumeQuoteRecord(quoteId) {
+  if (useDb()) return dbModule.consumeQuoteRecordInDb(quoteId);
+  const all = readJson(QUOTES_FILE, []);
+  const q = all.find((x) => x.quote_id === quoteId);
+  if (q) {
+    q.consumed = 1;
+    writeJson(QUOTES_FILE, all);
+  }
 }
 
 function claims() {
@@ -144,7 +196,9 @@ function migrateJsonToDb() {
     const existingPolicies = readJson(POLICIES_FILE, []);
     const existingClaims = readJson(CLAIMS_FILE, []);
     if (existingPolicies.length > 0 || existingClaims.length > 0) {
-      existingPolicies.forEach((p) => dbModule.savePolicyToDb(p));
+      existingPolicies.forEach((p) =>
+        dbModule.savePolicyToDb({ ...normalizePolicy(p), status: p.status || 'ACTIVE' })
+      );
       existingClaims.forEach((c) => dbModule.saveClaimToDb(c));
       console.log('Migrated', existingPolicies.length, 'policies and', existingClaims.length, 'claims to SQLite');
     }
@@ -163,6 +217,11 @@ module.exports = {
   policies,
   savePolicy,
   getPolicy,
+  updatePolicy,
+  getPolicyByBindIdempotency,
+  saveQuoteRecord,
+  getQuoteRecord,
+  consumeQuoteRecord,
   claims,
   saveClaim,
   updateClaim,

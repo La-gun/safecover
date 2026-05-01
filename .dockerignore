@@ -1,0 +1,16 @@
+.git
+.github
+.cursor
+**/node_modules
+backend/node_modules
+data
+*.db
+.env
+.env.*
+README.md
+docs
+contracts
+woocommerce
+scripts
+**/*.test.js
+backend/tests

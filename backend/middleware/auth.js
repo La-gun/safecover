@@ -1,9 +1,8 @@
 /**
- * API key authentication - optional for demo
- * Set API_KEY env to require auth; otherwise demo key or no key accepted
- * Validates against env keys and dynamically created partner API keys
+ * API key authentication — strict/production requires valid keys (see config/safecoverEnv.js).
  */
-const REQUIRE_AUTH = !!process.env.API_KEY;
+const safecoverEnv = require('../config/safecoverEnv');
+const REQUIRE_AUTH = safecoverEnv.isAuthRequired();
 const VALID_KEYS = new Set([
   process.env.API_KEY,
   process.env.API_KEY_DEMO || 'demo',

@@ -199,14 +199,20 @@
 
         fetch(API + '/api/policy/bind', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({
             quote_id: selected.quote_id,
             transaction_id: 'ORD_' + Date.now(),
-            customer: { email: 'customer@example.com', name: 'Demo User' },
+            customer: {
+              email: 'customer@example.com',
+              name: 'Demo Policyholder',
+              address: { line1: '123 Demo Street', city: 'New York', postal_code: '10001', country: 'US' },
+            },
+            billing: { cardholder_name: 'Demo Policyholder' },
             premium_paid: selected.premium,
             provider_id: selected.provider_id,
-            plan_id: selected.plan_id
+            plan_id: selected.plan_id,
+            items: [{ value: 89 }, { value: 24 }],
           })
         })
           .then(function (r) { return r.json(); })
@@ -215,7 +221,9 @@
               '<div class="status-msg success">Bound! Policy ID: ' + res.policy_id + '</div>';
             setStep(4);
             document.getElementById('card-policy').style.display = 'block';
-            return fetch(API + '/api/policy/' + res.policy_id);
+            return fetch(API + '/api/policy/' + res.policy_id, {
+              headers: { 'X-API-Key': 'demo' },
+            });
           })
           .then(function (r) { return r.json(); })
           .then(function (policy) {

@@ -25,6 +25,9 @@ function forwardToInsurer(policy) {
       transaction_id: policy.transaction_id,
       customer: policy.customer,
       recorded_at: policy.recorded_at,
+      jurisdiction: policy.jurisdiction,
+      regulatory_snapshot: policy.regulatory_snapshot,
+      status: policy.status,
     });
 
     const isHttps = url.protocol === 'https:';

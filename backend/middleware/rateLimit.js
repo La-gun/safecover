@@ -5,6 +5,7 @@ const limits = new Map();
 const WINDOW_MS = 60 * 1000; // 1 minute
 const QUOTE_LIMIT = 100;
 const BIND_LIMIT = 50;
+const POS_LIMIT = 80;
 
 function getKey(req) {
   return req.partnerId || req.ip || req.headers['x-forwarded-for'] || 'default';
@@ -38,4 +39,12 @@ function rateLimitBind(req, res, next) {
   next();
 }
 
-module.exports = { rateLimitQuote, rateLimitBind };
+function rateLimitPos(req, res, next) {
+  const key = getKey(req);
+  if (!checkLimit(key, `pos:${key}`, POS_LIMIT)) {
+    return res.status(429).json({ error: 'Too many POS requests', code: 'RATE_LIMIT' });
+  }
+  next();
+}
+
+module.exports = { rateLimitQuote, rateLimitBind, rateLimitPos };

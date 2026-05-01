@@ -1,22 +1,25 @@
 # SafeCover Embedded Microinsurance System
 
-Embedded microinsurance for e-commerce checkouts. Works with **any platform**: Shopify, WooCommerce, BigCommerce, Magento, custom sites.
+Embedded microinsurance for e-commerce checkouts and **retail POS** (server-side). Works with **any platform**: Shopify, WooCommerce, BigCommerce, Magento, custom sites, and POS or middleware that can call HTTPS JSON APIs.
 
-> **Demo / Prototype** — This project is a demonstration and reference implementation. It is not intended for production use without proper insurance licensing, regulatory compliance, and security hardening. Use at your own risk.
+> **Demo / Prototype** — Reference implementation with optional **strict (production-style) mode**: server-side quote binding, policy lifecycle, webhook HMAC, and carrier metadata hooks — see [docs/PRODUCTION.md](docs/PRODUCTION.md). You still need licensed capacity, filed products, and hardened operations beyond this repo.
 
 ## Documentation
 
 | Doc | Description |
 |-----|--------------|
-| [API Reference](docs/API.md) | Quote, Bind, Confirm, Webhook – full structure |
+| [API Reference](docs/API.md) | Quote, Bind, Confirm, Webhook, **POS Enhanced** – full structure |
 | [Shopify Integration](docs/INTEGRATION-SHOPIFY.md) | Checkout extension + Liquid snippets |
 | [WooCommerce Integration](docs/INTEGRATION-WOOCOMMERCE.md) | PHP plugin + universal widget |
+| [POS Integration](docs/INTEGRATION-POS.md) | Point-of-sale: terminal context, ticket IDs, `sale` flow |
 | [Checkout UX Demo](frontend/checkout-ux-demo.html) | Desktop + mobile simulation |
+| [Production / security / compliance](docs/PRODUCTION.md) | Env vars, strict mode, webhooks, insurer metadata |
+| [Deploy (Docker / hosted prototype)](docs/DEPLOY.md) | Single-container API + static UI; Render / Railway / Fly notes |
 
 ## Project Structure
 
 ```
-├── backend/              # Node.js Express API
+├── backend/              # Node.js Express API (`server.js`, `services/` e.g. `posEnhanced.js` for POS)
 ├── docs/                 # API reference + integration guides
 ├── frontend/
 │   ├── safecover-widget.js   # Universal widget (platform-agnostic)
@@ -51,6 +54,7 @@ API runs at `http://localhost:3000`
 - `POST /api/policy/bind` – Bind policy at checkout
 - `POST /api/policy/confirm` – Confirm policy when payment succeeds
 - `POST /api/webhook` – Receive order/payment events
+- `POST /api/pos/enhanced` – **POS:** quote, bind, confirm, or bind+confirm (`sale`) with terminal metadata ([docs/INTEGRATION-POS.md](docs/INTEGRATION-POS.md))
 
 ### 2. Universal Widget (Any E-Commerce Platform)
 

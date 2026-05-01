@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const safecoverEnv = require('./config/safecoverEnv');
 const scenarios = require('./scenarios');
 const providers = require('./providers');
 const store = require('./services/store');
@@ -10,21 +11,72 @@ const compliance = require('./services/compliance');
 const fraud = require('./services/fraud');
 const partners = require('./services/partners');
 const coverageOptimizer = require('./services/coverageOptimizer');
+const quoteRegistry = require('./services/quoteRegistry');
+const insurerCore = require('./services/insurerCore');
+const posEnhanced = require('./services/posEnhanced');
+const certificateService = require('./services/certificateService');
+const policyholderBilling = require('./services/policyholderBilling');
 const { authMiddleware } = require('./middleware/auth');
-const { rateLimitQuote, rateLimitBind } = require('./middleware/rateLimit');
+const { rateLimitQuote, rateLimitBind, rateLimitPos } = require('./middleware/rateLimit');
+const { securityHeaders, corsMiddleware } = require('./middleware/corsAndSecurity');
+const { webhookVerifyMiddleware } = require('./middleware/webhookVerify');
+
+safecoverEnv.validateStartupConfig();
 
 const app = express();
+
+// Reverse proxies (Render, Railway, Fly, etc.): correct req.protocol / host for certificate URLs.
+if (process.env.TRUST_PROXY !== '0' && process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '10kb' }));
-
-app.use((req, res, next) => {
-  res.set({
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, X-Partner-Id, Authorization',
-  });
-  next();
+app.get('/health', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, service: 'safecover-api' });
 });
+
+const err = (res, status, msg, code = 'VALIDATION_ERROR') =>
+  res.status(status).json({ error: msg, code });
+
+app.use(securityHeaders);
+app.use(corsMiddleware);
+
+/** POS: allow larger bodies (many line items); register before global express.json limit */
+app.post(
+  '/api/pos/enhanced',
+  express.json({ limit: '128kb' }),
+  authMiddleware,
+  rateLimitPos,
+  (req, res) => posEnhanced.handlePosEnhanced(req, res)
+);
+
+app.post(
+  '/api/webhook',
+  express.raw({ type: 'application/json', limit: '64kb' }),
+  webhookVerifyMiddleware,
+  (req, res) => {
+    try {
+      const body = req.webhookJson;
+      if (!body || typeof body !== 'object') {
+        return err(res, 400, 'Request body must be a JSON object', 'INVALID_BODY');
+      }
+      const bodyStr = JSON.stringify(body);
+      if (bodyStr.length > 64 * 1024) {
+        return err(res, 413, 'Webhook payload too large', 'PAYLOAD_TOO_LARGE');
+      }
+      const eventType = body.event || body.type || 'unknown';
+      console.log('Webhook received:', eventType);
+      return res.sendStatus(200);
+    } catch (e) {
+      console.error('Webhook error:', e);
+      return err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+    }
+  }
+);
+
+app.use(express.json({ limit: '10kb' }));
 
 app.use((err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
@@ -34,29 +86,6 @@ app.use((err, req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, '../frontend')));
-
-/** Build UK IPID-compliant certificate URL for a policy */
-function buildCertificateUrl(req, policy) {
-  const base = (req && req.get && req.get('host'))
-    ? `${req.protocol || 'http'}://${req.get('host')}`
-    : (process.env.BASE_URL || 'http://localhost:3000');
-  const cov = policy.coverage_details || {};
-  const params = new URLSearchParams({
-    policy_id: policy.policy_id || '',
-    premium: String(policy.premium ?? 0),
-    sum_insured: String(cov.max_value ?? 0),
-    total_sum: String(cov.max_value ?? 0),
-    effective: (policy.recorded_at || new Date().toISOString()).slice(0, 10),
-    duration: cov.duration || '12 months',
-    excess: '50',
-    insurer: policy.provider_name || 'SafeCover Insurance Ltd',
-    items: 'Insured jewellery/watch as per policy schedule',
-  });
-  return `${base}/ipid-certificate.html?${params.toString()}`;
-}
-
-const err = (res, status, msg, code = 'VALIDATION_ERROR') =>
-  res.status(status).json({ error: msg, code });
 
 const defaultScenario = scenarios.retail;
 
@@ -140,6 +169,13 @@ app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
     const options = buildQuoteOptions(actuarialQuotes);
+    quoteRegistry.registerOptionQuotes(store, {
+      partnerId: req.partnerId,
+      items,
+      jurisdiction: comp.jurisdiction,
+      scenario: scenarioId || 'retail',
+      options,
+    });
 
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
@@ -326,6 +362,13 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, suggestedScenario);
     const options = buildQuoteOptions(actuarialQuotes);
     const ranked = aiRateOptions(options, value, suggestedScenario);
+    quoteRegistry.registerOptionQuotes(store, {
+      partnerId: req.partnerId,
+      items,
+      jurisdiction: comp.jurisdiction,
+      scenario: suggestedScenario,
+      options: ranked,
+    });
 
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
@@ -430,10 +473,21 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
     }
     const best = quotes.reduce((a, b) => (a.premium < b.premium ? a : b));
     const premium = best.premium;
+    const quoteId = 'QTY' + Date.now();
+    quoteRegistry.registerQuote(store, {
+      quote_id: quoteId,
+      partner_id: req.partnerId,
+      items,
+      premium,
+      provider_id: best.provider_id,
+      plan_id: best.plan_id,
+      scenario: scenario.id,
+      jurisdiction: comp.jurisdiction,
+    });
 
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, scenario: scenario.id, jurisdiction: comp.jurisdiction });
     res.json({
-      quote_id: 'QTY' + Date.now(),
+      quote_id: quoteId,
       premium,
       scenario: scenario.id,
       jurisdiction: comp.jurisdiction,
@@ -453,18 +507,83 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
 
 app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => {
   try {
-    const { quote_id, customer, transaction_id, premium_paid, scenario: scenarioId, provider_id, plan_id, jurisdiction } = req.body || {};
+    const {
+      quote_id,
+      customer,
+      transaction_id,
+      premium_paid,
+      scenario: scenarioId,
+      provider_id,
+      plan_id,
+      jurisdiction,
+      items,
+    } = req.body || {};
 
     if (!quote_id?.trim()) return err(res, 400, 'quote_id is required', 'INVALID_QUOTE_ID');
     if (!customer?.email?.includes?.('@')) return err(res, 400, 'customer.email must be a valid email', 'INVALID_EMAIL');
     if (!transaction_id) return err(res, 400, 'transaction_id is required', 'INVALID_TRANSACTION_ID');
 
-    const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
-    if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
+    const customerNorm = policyholderBilling.normalizeCustomerInput(req.body);
+    if (!customerNorm.email.includes('@')) {
+      return err(res, 400, 'customer.email must be a valid email', 'INVALID_EMAIL');
+    }
+    const billingCheck = policyholderBilling.validateBindCustomerAndBilling(
+      customerNorm,
+      req.body.billing,
+      {}
+    );
+    if (!billingCheck.ok) {
+      return err(res, 400, billingCheck.error, billingCheck.code || 'BILLING_VALIDATION_ERROR');
+    }
+    const customerForPolicy = billingCheck.customer;
+
+    const offering = insurerCore.validateOffering({ jurisdiction, scenario: scenarioId, items });
+    if (!offering.ok) {
+      return err(res, 400, offering.error || 'Product offering not permitted', 'COMPLIANCE_ERROR');
+    }
+
+    const bindIdem = req.get('X-Bind-Idempotency-Key')?.trim() || req.body?.bind_idempotency_key?.trim();
+    if (bindIdem) {
+      const existing = store.getPolicyByBindIdempotency(bindIdem);
+      if (existing) {
+        const cert = existing.certificate_url || certificateService.buildCertificateUrl(req, existing);
+        return res.json({
+          policy_id: existing.policy_id,
+          certificate_id: existing.certificate_id,
+          provider_id: existing.provider_id,
+          plan_id: existing.plan_id,
+          provider_name: existing.provider_name,
+          certificate_url: cert,
+          smart_contract_url: existing.smart_contract_url,
+          contract_address: existing.contract_address,
+          tx_hash: existing.tx_hash,
+          execution_steps: existing.execution_steps,
+          constructor_args: existing.constructor_args,
+          coverage_details: existing.coverage_details,
+          fraud_decision: existing.fraud_decision,
+          fraud_score: existing.fraud_score,
+          status: existing.status,
+          idempotent: true,
+        });
+      }
+    }
+
+    const quoteEval = quoteRegistry.evaluateQuoteForBind(store, {
+      quote_id,
+      premium_paid,
+      provider_id,
+      plan_id,
+      scenario: scenarioId,
+      items,
+      bind_partner_id: req.partnerId,
+    });
+    if (!quoteEval.ok) {
+      return err(res, 400, quoteEval.error, quoteEval.code || 'QUOTE_ERROR');
+    }
 
     const existingPolicies = store.policies();
     const fraudResult = fraud.evaluateBind({
-      customer,
+      customer: customerForPolicy,
       transaction_id,
       quote_id,
       existingPolicies,
@@ -478,29 +597,31 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       return err(res, 400, 'premium_paid must be a non-negative number', 'INVALID_PREMIUM');
     }
 
+    const effProvider = provider_id || quoteEval.record?.provider_id || 'safecover';
+    const effPlan = plan_id || quoteEval.record?.plan_id || 'standard';
     const scenario = getScenario(scenarioId);
-    const provider = providerMap.get(provider_id);
-    const plan = planMap.get(`${provider_id}:${plan_id}`);
+    const provider = providerMap.get(effProvider);
+    const plan = planMap.get(`${effProvider}:${effPlan}`);
     const coverage = plan?.coverage ?? scenario.max_value;
     const commissionRate = provider?.commission_rate ?? 0.15;
     const commission = parseFloat((premium * commissionRate).toFixed(2));
 
     const policyId = 'POL_' + Date.now();
-    const bcResult = await blockchain.recordPolicy(policyId, customer?.email, premium, coverage);
+    const bcResult = await blockchain.recordPolicy(policyId, customerForPolicy.email, premium, coverage);
 
-    const policy = {
+    let policy = {
       policy_id: policyId,
-      provider_id: provider_id || 'safecover',
-      plan_id: plan_id || 'standard',
+      provider_id: effProvider,
+      plan_id: effPlan,
       provider_name: provider?.name || 'SafeCover',
       premium,
       commission,
       commission_rate: commissionRate,
       transaction_id: transaction_id,
-      customer: customer,
+      customer: customerForPolicy,
       quote_id: quote_id,
       scenario: scenarioId || 'retail',
-      jurisdiction: comp.jurisdiction || null,
+      jurisdiction: offering.jurisdiction || null,
       fraud_decision: fraudResult.decision,
       fraud_score: fraudResult.score,
       fraud_reasons: fraudResult.reasons,
@@ -516,10 +637,21 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       constructor_args: bcResult.constructor_args,
       recorded_at: new Date().toISOString(),
       partner_id: req.partnerId,
+      status: 'PENDING_PAYMENT',
+      bind_idempotency_key: bindIdem || null,
     };
-    policy.certificate_url = buildCertificateUrl(req, policy);
+    policy = insurerCore.attachRegulatorySnapshot(policy);
+    policy = certificateService.attachCertificateToPolicy(policy, req, {
+      scenario,
+      plan,
+      provider,
+      items: Array.isArray(items) ? items : [],
+      partnerId: req.partnerId,
+      planName: plan?.name,
+    });
 
     store.savePolicy(policy);
+    if (quoteEval.record) store.consumeQuoteRecord(quote_id);
     store.recordAnalytics({ type: 'bind', policy_id: policyId, premium, commission, partner_id: req.partnerId });
 
     insurer.forwardToInsurer(policy).catch((e) => {
@@ -528,6 +660,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
 
     res.json({
       policy_id: policyId,
+      certificate_id: policy.certificate_id,
       provider_id: policy.provider_id,
       plan_id: policy.plan_id,
       provider_name: policy.provider_name,
@@ -540,6 +673,8 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       coverage_details: policy.coverage_details,
       fraud_decision: fraudResult.decision,
       fraud_score: fraudResult.score,
+      status: policy.status,
+      disclosures: offering.disclosures,
     });
   } catch (e) {
     console.error('Policy bind error:', e);
@@ -549,15 +684,54 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
 
 app.post('/api/policy/confirm', authMiddleware, (req, res) => {
   try {
-    const { policy_id, transaction_id } = req.body || {};
+    const { policy_id, transaction_id, payment_reference } = req.body || {};
 
     if (!policy_id?.trim()) return err(res, 400, 'policy_id is required', 'INVALID_POLICY_ID');
     if (!transaction_id) return err(res, 400, 'transaction_id is required', 'INVALID_TRANSACTION_ID');
 
+    const policy = store.getPolicy(policy_id);
+    if (!policy) return err(res, 404, 'Policy not found', 'POLICY_NOT_FOUND');
+    if (policy.transaction_id !== transaction_id) {
+      return err(res, 400, 'transaction_id does not match policy', 'TRANSACTION_MISMATCH');
+    }
+
+    if (policy.status === 'ACTIVE') {
+      return res.json({
+        policy_id,
+        status: policy.status,
+        confirmed_at: policy.confirmed_at,
+        payment_reference: policy.payment_reference || null,
+        certificate_url: policy.certificate_url || certificateService.buildCertificateUrl(req, policy),
+        idempotent: true,
+      });
+    }
+
+    if (policy.status !== 'PENDING_PAYMENT') {
+      return err(res, 400, 'Policy cannot be confirmed from current status', 'INVALID_POLICY_STATE');
+    }
+
+    const confirmedAt = new Date().toISOString();
+    let updated = store.updatePolicy(policy_id, {
+      status: 'ACTIVE',
+      confirmed_at: confirmedAt,
+      payment_reference: payment_reference || null,
+      actor: req.partnerId || 'system',
+    });
+    const refreshed = certificateService.refreshCertificateAfterConfirm(
+      { ...updated, confirmed_at: confirmedAt },
+      req
+    );
+    updated = store.updatePolicy(policy_id, {
+      period: refreshed.period,
+      certificate_url: refreshed.certificate_url,
+    });
+
     res.json({
       policy_id,
-      status: 'confirmed',
-      confirmed_at: new Date().toISOString(),
+      status: updated.status,
+      confirmed_at: updated.confirmed_at,
+      payment_reference: updated.payment_reference,
+      certificate_url: updated.certificate_url,
     });
   } catch (e) {
     console.error('Policy confirm error:', e);
@@ -573,6 +747,9 @@ app.post('/api/claim', authMiddleware, (req, res) => {
 
     const policy = store.getPolicy(policy_id);
     if (!policy) return err(res, 404, 'Policy not found', 'POLICY_NOT_FOUND');
+    if (policy.status !== 'ACTIVE') {
+      return err(res, 400, 'Claims are only accepted for active (confirmed) policies', 'POLICY_NOT_ACTIVE');
+    }
 
     const claimId = 'CLM_' + Date.now();
     const claim = {
@@ -609,6 +786,9 @@ app.post('/api/claim/trigger', authMiddleware, (req, res) => {
 
     const policy = store.getPolicy(policy_id);
     if (!policy) return err(res, 404, 'Policy not found', 'POLICY_NOT_FOUND');
+    if (policy.status !== 'ACTIVE') {
+      return err(res, 400, 'Parametric triggers require an active policy', 'POLICY_NOT_ACTIVE');
+    }
 
     const claimId = 'CLM_' + Date.now();
     const claim = {
@@ -704,9 +884,32 @@ app.get('/api/policies', authMiddleware, (req, res) => {
 
 app.get('/api/policy/:id', authMiddleware, (req, res) => {
   try {
-    const policy = store.getPolicy(req.params.id);
+    let policy = store.getPolicy(req.params.id);
     if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
-    if (!policy.certificate_url) policy.certificate_url = buildCertificateUrl(req, policy);
+    if (!policy.certificate_token) {
+      const scenario = getScenario(policy.scenario);
+      const provider = providerMap.get(policy.provider_id);
+      const plan = planMap.get(`${policy.provider_id}:${policy.plan_id}`);
+      const itemsFromPolicy = Array.isArray(policy.insured_items)
+        ? policy.insured_items.map((i) => ({
+            name: i.description,
+            value: i.value,
+            sku: i.sku,
+          }))
+        : [];
+      policy = certificateService.attachCertificateToPolicy(policy, req, {
+        scenario,
+        plan,
+        provider,
+        items: itemsFromPolicy,
+        partnerId: policy.partner_id,
+        planName: plan?.name,
+      });
+      store.savePolicy(policy);
+    } else if (!policy.certificate_url) {
+      policy.certificate_url = certificateService.buildCertificateUrl(req, policy);
+      store.savePolicy(policy);
+    }
     res.json(policy);
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
@@ -717,8 +920,38 @@ app.get('/api/policy/:id/certificate', (req, res) => {
   try {
     const policy = store.getPolicy(req.params.id);
     if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
-    const url = policy.certificate_url || buildCertificateUrl(req, policy);
+    const url = policy.certificate_url || certificateService.buildCertificateUrl(req, policy);
     res.redirect(302, url);
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+/** Machine-readable schedule + certificate (authenticated). */
+app.get('/api/policy/:id/schedule', authMiddleware, (req, res) => {
+  try {
+    const policy = store.getPolicy(req.params.id);
+    if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+    res.json(certificateService.buildPublicCertificateDocument(policy));
+  } catch (e) {
+    err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
+  }
+});
+
+/**
+ * Public certificate JSON for the HTML viewer (token required).
+ * Query: token — must match policy.certificate_token (constant-time compare).
+ */
+app.get('/api/public/certificate/:policy_id', (req, res) => {
+  try {
+    const policy = store.getPolicy(req.params.policy_id);
+    if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+    const token = req.query.token || req.get('X-Certificate-Token');
+    if (!certificateService.verifyCertificateToken(policy, token)) {
+      return err(res, 403, 'Invalid or missing certificate token', 'CERTIFICATE_FORBIDDEN');
+    }
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json(certificateService.buildPublicCertificateDocument(policy));
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
@@ -744,20 +977,6 @@ app.get('/api/analytics', authMiddleware, (req, res) => {
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
-});
-
-app.post('/api/webhook', (req, res) => {
-  if (!req.body || typeof req.body !== 'object') {
-    return err(res, 400, 'Request body must be a JSON object', 'INVALID_BODY');
-  }
-  const bodyStr = JSON.stringify(req.body);
-  if (bodyStr.length > 64 * 1024) {
-    return err(res, 413, 'Webhook payload too large', 'PAYLOAD_TOO_LARGE');
-  }
-  // Log type/event only; avoid logging full payload (may contain PII)
-  const eventType = req.body.event || req.body.type || 'unknown';
-  console.log('Webhook received:', eventType);
-  res.sendStatus(200);
 });
 
 app.get('/api/actuarial/backtest', authMiddleware, (req, res) => {

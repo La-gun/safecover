@@ -49,3 +49,7 @@ Your `getCheckoutData()` must return:
 For WooCommerce, you can use either:
 - **PHP plugin** (server-side): `woocommerce/safecover-insurance-checkout.php` – no JS needed
 - **JS adapter** (client-side): Use this adapter if you prefer the universal widget
+
+## Point of sale (POS)
+
+In-store **registers** are not covered by these browser adapters. Use the HTTP API **`POST /api/pos/enhanced`** from your POS middleware or gateway (server-to-server). See **[docs/INTEGRATION-POS.md](../../docs/INTEGRATION-POS.md)** and **[docs/API.md](../../docs/API.md)** (section POS Enhanced).

@@ -247,14 +247,20 @@
 
         fetch(API + '/api/policy/bind', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({
             quote_id: selectedOption.quote_id,
             transaction_id: 'ORD_' + Date.now(),
-            customer: { email: 'customer@example.com', name: 'Demo User' },
+            customer: {
+              email: 'customer@example.com',
+              name: 'Demo Policyholder',
+              address: { line1: '123 Demo Street', city: 'New York', postal_code: '10001', country: 'US' },
+            },
+            billing: { cardholder_name: 'Demo Policyholder' },
             premium_paid: selectedOption.premium,
             provider_id: selectedOption.provider_id,
-            plan_id: selectedOption.plan_id
+            plan_id: selectedOption.plan_id,
+            items: [{ value: 89 }, { value: 24 }],
           })
         })
           .then(function (r) { return r.json(); })

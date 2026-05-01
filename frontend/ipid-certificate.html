@@ -3,190 +3,372 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Insurance Product Information Document (IPID) – Jewellery & Watch Insurance</title>
+  <title>Certificate of insurance</title>
   <style>
-    @page { size: A4; margin: 15mm; }
+    @page { size: A4; margin: 12mm; }
     * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11pt; line-height: 1.4; color: #1a1a1a; max-width: 210mm; margin: 0 auto; padding: 16px; }
-    .ipid-header { text-align: center; border-bottom: 2px solid #1a1a1a; padding-bottom: 12px; margin-bottom: 16px; }
-    .ipid-title { font-size: 14pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .ipid-subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
-    .section { margin-bottom: 14px; }
-    .section-title { font-weight: 700; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; color: #333; }
-    .section-content { font-size: 10pt; }
-    .section-content ul { margin: 4px 0; padding-left: 18px; }
-    .section-content li { margin: 2px 0; }
-    .insurer-block { background: #f5f5f5; padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; }
-    .insurer-block strong { display: block; margin-bottom: 4px; }
-    .insurer-block span { font-size: 9pt; color: #555; }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media print { body { padding: 0; } .section { break-inside: avoid; } }
-    .reg-notice { font-size: 9pt; color: #666; margin-top: 16px; padding-top: 12px; border-top: 1px solid #ddd; }
-    .item-list { font-weight: 500; }
+    body { font-family: Georgia, 'Times New Roman', serif; font-size: 10.5pt; line-height: 1.5; color: #0f172a; max-width: 210mm; margin: 0 auto; padding: 18px; background: #f1f5f9; }
+    .cert-page {
+      background: #fffef8;
+      border: 3px double #1e3a5f;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.12);
+      padding: 22px 26px 28px;
+      position: relative;
+    }
+    .cert-page::before {
+      content: '';
+      display: block;
+      height: 4px;
+      background: linear-gradient(90deg, #b45309, #d97706, #b45309);
+      margin: -22px -26px 18px;
+      border-bottom: 2px solid #1e3a5f;
+    }
+    .cert-ribbon {
+      text-align: center;
+      font-family: system-ui, sans-serif;
+      font-size: 8pt;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+    .cert-main-title {
+      text-align: center;
+      font-family: system-ui, sans-serif;
+      font-size: 17pt;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #0f172a;
+      margin: 0 0 4px;
+      line-height: 1.2;
+    }
+    .cert-sub {
+      text-align: center;
+      font-family: system-ui, sans-serif;
+      font-size: 9pt;
+      color: #475569;
+      margin: 0 0 18px;
+    }
+    .ids-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px 24px;
+      font-family: system-ui, sans-serif;
+      font-size: 9.5pt;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      border: 1px solid #94a3b8;
+      margin-bottom: 16px;
+    }
+    .ids-bar span strong { color: #0f172a; }
+    .ph-box {
+      border: 2px solid #1e3a5f;
+      padding: 12px 14px;
+      margin: 14px 0;
+      background: #fff;
+      font-family: system-ui, sans-serif;
+    }
+    .ph-box .label {
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #b45309;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .ph-box .name { font-size: 13pt; font-weight: 700; color: #0f172a; }
+    .ph-box .addr { font-size: 10pt; color: #334155; margin-top: 6px; line-height: 1.45; }
+    .insurer-block { background: #f8fafc; padding: 12px 14px; border: 1px solid #cbd5e1; margin-bottom: 12px; font-family: system-ui, sans-serif; }
+    .insurer-block .name { font-weight: 700; font-size: 11pt; color: #0f172a; }
+    .section { margin-bottom: 12px; break-inside: avoid; font-family: system-ui, sans-serif; }
+    .section h2 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px; color: #1e3a5f; border-bottom: 2px solid #cbd5e1; padding-bottom: 4px; }
+    .section .body { font-size: 9.5pt; color: #334155; }
+    ul { margin: 4px 0; padding-left: 18px; }
+    li { margin: 3px 0; }
+    .muted { color: #64748b; font-size: 9pt; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+    .err { background: #fff3f0; border: 1px solid #e8a090; color: #7a2314; padding: 12px; border-radius: 6px; font-family: system-ui, sans-serif; }
+    table.items { width: 100%; border-collapse: collapse; font-size: 9pt; margin-top: 6px; }
+    table.items th, table.items td { border: 1px solid #94a3b8; padding: 6px 8px; text-align: left; }
+    table.items th { background: #e2e8f0; color: #0f172a; }
+    .short-cert { border: 2px dashed #64748b; padding: 12px; margin-top: 8px; background: #fff; }
+    @media print { body { padding: 0; background: #fff; } .no-print { display: none; } .cert-page { box-shadow: none; } }
   </style>
 </head>
 <body>
-  <div class="ipid-header">
-    <div class="ipid-title">Insurance Product Information Document</div>
-    <div class="ipid-subtitle">(IPID) – Standard format per FCA ICOBS 6 Annex III / IDD</div>
-  </div>
+  <p class="no-print muted" style="margin-top:0">Use Print to PDF to save. Links include a private token — do not share publicly.</p>
 
-  <div class="insurer-block">
-    <strong id="insurer-name">SafeCover Insurance Ltd</strong>
-    <span id="insurer-fca">FCA Registration: 123456</span><br>
-    <span id="insurer-address">123 Insurance House, London EC2V 7HH</span><br>
-    <span id="insurer-contact">Tel: 0800 123 4567 | Email: enquiries@safecover.co.uk</span>
-  </div>
-
-  <div class="section">
-    <div class="section-title">1. Type of Insurance</div>
-    <div class="section-content">
-      <strong>Product:</strong> Jewellery & Watch Insurance – All Risks Cover<br>
-      <strong>Description:</strong> This policy provides worldwide cover for accidental damage, mechanical breakdown, theft and loss of specified jewellery and watches. Cover applies anywhere in the world, subject to policy terms.
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">2. Insured Item(s)</div>
-    <div class="section-content item-list" id="insured-items">
-      <!-- Populated by JS: e.g. "10-carat diamond ring", "Rolex Submariner" -->
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">3. What is Insured? (Summary of Cover)</div>
-    <div class="section-content">
-      <ul>
-        <li><strong>Accidental Damage:</strong> Repair or replacement of the item if accidentally damaged (e.g. knocked, dropped, crushed).</li>
-        <li><strong>Theft:</strong> Replacement if stolen. A valid police report and crime reference number must be provided.</li>
-        <li><strong>Loss (proven theft):</strong> Replacement where loss is evidenced as theft (police report required).</li>
-        <li><strong>Mechanical Breakdown:</strong> Repair or replacement of watches for mechanical failure (subject to policy limits).</li>
-        <li><strong>Worldwide Cover:</strong> Insured anywhere in the world, subject to policy terms and exclusions.</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">4. What is Not Insured? (Main Exclusions)</div>
-    <div class="section-content">
-      <ul>
-        <li><strong>Loss not proved as theft:</strong> Unexplained disappearance, misplacement or loss where theft cannot be evidenced.</li>
-        <li><strong>Wear and tear:</strong> Gradual deterioration, scratching, or damage from normal use.</li>
-        <li><strong>Unattended items:</strong> Theft from an unattended vehicle or from a location where the item was left unattended (e.g. public changing room, gym locker).</li>
-        <li><strong>Warranty/servicing:</strong> Damage covered by manufacturer warranty or due to routine servicing or repair.</li>
-        <li><strong>Intentional acts:</strong> Damage or loss caused deliberately by the policyholder or a member of their household.</li>
-        <li><strong>War, terrorism, confiscation:</strong> Loss or damage arising from war, terrorism, civil unrest, or confiscation by authorities.</li>
-        <li><strong>Unspecified items:</strong> Items not listed on the policy schedule or exceeding the sum insured.</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">5. Policy Limits</div>
-    <div class="section-content">
-      Maximum cover per item: <strong id="sum-insured">£0</strong><br>
-      Total sum insured: <strong id="total-sum-insured">£0</strong><br>
-      Excess (deductible): <strong id="excess">£50</strong> per claim (or as stated in policy schedule).
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">6. Obligations at Contract Start</div>
-    <div class="section-content">
-      <ul>
-        <li>You must be aged 18 or over and resident in the United Kingdom.</li>
-        <li>Provide accurate information about the insured item(s), including description, value and proof of purchase/valuation.</li>
-        <li>Declare any previous claims, losses or refusals of insurance.</li>
-        <li>Ensure items are stored securely when not in use (e.g. safe, locked cabinet).</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">7. Obligations During the Contract Term</div>
-    <div class="section-content">
-      <ul>
-        <li>Notify us of any change in circumstances that may affect the risk (e.g. change of address, new high-value item).</li>
-        <li>Keep items in secure storage when not worn; do not leave unattended in vehicles or public places.</li>
-        <li>Maintain proof of purchase and valuation documents.</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">8. Obligations When Claiming</div>
-    <div class="section-content">
-      <ul>
-        <li><strong>Report loss/theft within 24 hours</strong> to the police and to us.</li>
-        <li>Obtain a police report and crime reference number for theft or attempted theft.</li>
-        <li>Provide: proof of purchase, valuation certificate, photographs, and any other evidence requested.</li>
-        <li>Cooperate fully with our claims investigation.</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="two-col">
-    <div class="section">
-      <div class="section-title">9. Premium & Payment</div>
-      <div class="section-content">
-        Premium: <strong id="premium">£0</strong><br>
-        Payment: <strong id="payment-freq">Annually</strong><br>
-        <span id="installment-note" style="display:none">Financed by instalments. Interest may apply.</span>
-      </div>
-    </div>
-    <div class="section">
-      <div class="section-title">10. Term & Cancellation</div>
-      <div class="section-content">
-        Effective: <strong id="effective-date">—</strong><br>
-        Expires: <strong id="expiry-date">—</strong><br>
-        <strong>14-day cooling-off:</strong> You may cancel within 14 days of inception for a full refund (if no claim made).
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">11. Claims Procedure</div>
-    <div class="section-content">
-      Contact: <strong>0800 123 4567</strong> or <strong>claims@safecover.co.uk</strong><br>
-      Required documents: Proof of purchase, valuation certificate, police report (for theft), photographs of item.
-    </div>
-  </div>
-
-  <div class="reg-notice">
-    <strong>Regulatory Information:</strong> This document is a summary only. It does not replace the full policy wording. For complete terms, conditions, exclusions and limits, please refer to the full policy document. This IPID follows the FCA/IDD Annex III structure for non-life insurance.
-  </div>
+  <div id="loading" class="muted">Loading certificate…</div>
+  <div id="error" class="err" style="display:none"></div>
+  <div id="doc" style="display:none"></div>
 
   <script>
-    (function() {
+    (function () {
       var params = new URLSearchParams(location.search);
-      var policyId = params.get('policy_id') || '—';
-      var insurer = params.get('insurer') || 'SafeCover Insurance Ltd';
-      var fca = params.get('fca') || '123456';
-      var items = params.get('items') || 'Specified jewellery/watch';
-      var sumInsured = params.get('sum_insured') || '0';
-      var totalSum = params.get('total_sum') || sumInsured;
-      var premium = params.get('premium') || '0';
-      var effective = params.get('effective') || new Date().toISOString().slice(0,10);
-      var duration = params.get('duration') || '12 months';
-      var excess = params.get('excess') || '50';
+      var policyId = params.get('policy_id');
+      var token = params.get('token');
+      var legacy = params.get('legacy') === '1';
 
-      var start = new Date(effective);
-      var end = new Date(start);
-      var dur = (duration || '').toLowerCase();
-      if (dur.indexOf('12') >= 0 || dur.indexOf('year') >= 0) end.setFullYear(end.getFullYear() + 1);
-      else if (dur.indexOf('6') >= 0 && dur.indexOf('month') >= 0) end.setMonth(end.getMonth() + 6);
-      else if (dur.indexOf('day') >= 0) { var d = parseInt(duration, 10) || 7; end.setDate(end.getDate() + d); }
-      else end.setMonth(end.getMonth() + 1);
-      var expiry = end.toISOString().slice(0,10);
+      function esc(s) {
+        if (s == null) return '';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
 
-      document.getElementById('insurer-name').textContent = insurer;
-      document.getElementById('insured-items').innerHTML = items.split('|').map(function(i){ return '• ' + i.trim(); }).join('<br>') || '• Specified jewellery/watch';
-      document.getElementById('sum-insured').textContent = '£' + parseFloat(sumInsured).toLocaleString();
-      document.getElementById('total-sum-insured').textContent = '£' + parseFloat(totalSum).toLocaleString();
-      document.getElementById('excess').textContent = '£' + excess;
-      document.getElementById('premium').textContent = '£' + parseFloat(premium).toFixed(2);
-      document.getElementById('effective-date').textContent = effective;
-      document.getElementById('expiry-date').textContent = expiry;
+      function listHtml(arr) {
+        if (!arr || !arr.length) return '<p class="muted">—</p>';
+        return '<ul>' + arr.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+      }
+
+      function symFor(cur) {
+        var c = String(cur || 'GBP').toUpperCase();
+        if (c === 'GBP') return '£';
+        if (c === 'USD') return '$';
+        if (c === 'EUR') return '€';
+        if (c === 'NGN') return '₦';
+        return c + ' ';
+      }
+
+      function renderFromPayload(d) {
+        var sym = symFor(d.coverage && d.coverage.currency);
+        var parties = d.parties || {};
+        var ins = parties.insurer || {};
+        var ph = parties.policyholder || {};
+        var cov = d.coverage || {};
+        var per = d.period || {};
+        var prem = d.premium || {};
+        var sched = d.schedule || {};
+        var short = d.certificate_short_form || {};
+        var legal = d.legal || {};
+        var claims = d.claims || {};
+
+        var itemsRows = (cov.insured_items || []).map(function (it) {
+          return '<tr><td>' + esc(it.description) + '</td><td>' + (it.value != null ? esc(sym + Number(it.value).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '—') + '</td><td>' + esc(it.sku || '—') + '</td></tr>';
+        }).join('');
+
+        var phAddrHtml = '';
+        if (ph.address_lines && ph.address_lines.length) {
+          phAddrHtml = ph.address_lines.map(function (line) { return esc(line); }).join('<br>');
+        } else if (ph.address_single_line) {
+          phAddrHtml = esc(ph.address_single_line);
+        }
+
+        return (
+          '<div class="cert-page">' +
+          '<div class="cert-ribbon">Official insurance document</div>' +
+          '<h1 class="cert-main-title">Certificate of insurance</h1>' +
+          '<p class="cert-sub">Evidence of cover issued to the named insured. Retain for your records. Subject to policy wording, exclusions, and endorsements.</p>' +
+          '<div class="ids-bar">' +
+          '<span><strong>Policy no.</strong> ' + esc(d.policy_id) + '</span>' +
+          '<span><strong>Certificate no.</strong> ' + esc(d.certificate_id) + '</span>' +
+          '<span><strong>Status</strong> ' + esc(d.status) + '</span>' +
+          '<span><strong>Quote ref.</strong> ' + esc(d.quote_id || '—') + '</span>' +
+          '</div>' +
+
+          '<div class="ph-box">' +
+          '<div class="label">Named insured (policyholder)</div>' +
+          '<div class="name">' + esc(ph.full_name || '—') + '</div>' +
+          (phAddrHtml ? '<div class="addr">' + phAddrHtml + '</div>' : '') +
+          '<div class="addr" style="margin-top:8px"><strong>Email:</strong> ' + esc(ph.email || '—') +
+          (ph.phone ? ' · <strong>Tel:</strong> ' + esc(ph.phone) : '') + '</div>' +
+          '</div>' +
+
+          '<div class="section"><h2>1. Insurer &amp; contract parties</h2><div class="body">' +
+          '<div class="insurer-block">' +
+          '<div class="name">' + esc(ins.trading_name || ins.legal_name) + '</div>' +
+          '<div>' + esc(ins.legal_name) + '</div>' +
+          '<div class="muted">' + esc(ins.registered_address) + '</div>' +
+          '<div class="muted">FCA / firm ref: ' + esc(ins.fca_registration) + '</div>' +
+          '<div class="muted">Claims: ' + esc(ins.phone) + ' · ' + esc(ins.claims_email) + '</div>' +
+          '<div class="muted">Enquiries: ' + esc(ins.enquiries_email) + '</div>' +
+          '</div>' +
+          (parties.broker_or_platform && parties.broker_or_platform.name
+            ? '<p><strong>Platform / distributor:</strong> ' + esc(parties.broker_or_platform.name) +
+              (parties.broker_or_platform.platform_id ? ' (' + esc(parties.broker_or_platform.platform_id) + ')' : '') + '</p>'
+            : '') +
+          '<p><strong>Order / transaction ID:</strong> ' + esc(sched.order_or_transaction_id || '—') + '</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>2. Period &amp; territorial scope</h2><div class="body">' +
+          '<div class="grid2">' +
+          '<div><strong>Inception (UTC ISO):</strong><br>' + esc(per.start_date) + '</div>' +
+          '<div><strong>Expiry (UTC ISO):</strong><br>' + esc(per.end_date) + '</div>' +
+          '<div><strong>Duration</strong><br>' + esc(per.duration_text) + '</div>' +
+          '<div><strong>Timezone note</strong><br>' + esc(per.timezone || '—') + '</div>' +
+          '</div>' +
+          (per.provisional ? '<p class="muted"><strong>Note:</strong> Period may be provisional until payment confirmation.</p>' : '') +
+          '<p class="muted"><strong>Governing law:</strong> ' + esc(legal.governing_law) + '</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>3. Sum insured &amp; limits</h2><div class="body">' +
+          '<p>Currency: <strong>' + esc(cov.currency) + '</strong></p>' +
+          '<p>Limit per claim / schedule cap: <strong>' + esc(sym + Number(cov.sum_insured || 0).toLocaleString('en-GB')) + '</strong><br>' +
+          'Amount at risk (order-based cap): <strong>' + esc(sym + Number(cov.aggregate_limit || cov.sum_insured || 0).toLocaleString('en-GB')) + '</strong><br>' +
+          'Excess: <strong>' + esc(sym + Number(cov.excess || 0).toLocaleString('en-GB')) + '</strong></p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>4. Premium &amp; payment</h2><div class="body">' +
+          '<p>Premium: <strong>' + esc(sym + Number(prem.premium_amount || 0).toFixed(2)) + '</strong><br>' +
+          'Payment status: <strong>' + esc(prem.payment_status) + '</strong><br>' +
+          'Payment reference: ' + esc(prem.payment_reference || '—') + '</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>5. Insuring clause (core cover)</h2><div class="body">' +
+          '<p>' + esc(cov.insuring_clause) + '</p>' +
+          '<p><strong>Coverage type:</strong> ' + esc((d.product && d.product.coverage_type) || cov.coverage_type) + '</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>6. Insured items (schedule)</h2><div class="body">' +
+          (itemsRows
+            ? '<table class="items"><thead><tr><th>Description</th><th>Value</th><th>SKU</th></tr></thead><tbody>' + itemsRows + '</tbody></table>'
+            : '<p class="muted">As per transaction details.</p>') +
+          '</div></div>' +
+
+          '<div class="section"><h2>7. Covered risks (summary)</h2><div class="body">' + listHtml(cov.covered_risks) + '</div></div>' +
+          '<div class="section"><h2>8. Exclusions (summary)</h2><div class="body">' + listHtml(cov.excluded_risks) + '</div></div>' +
+          '<div class="section"><h2>9. Conditions &amp; obligations</h2><div class="body">' + listHtml(d.conditions) + '</div></div>' +
+          '<div class="section"><h2>10. Claims procedure</h2><div class="body">' +
+          '<p>Contact: <strong>' + esc(claims.phone) + '</strong> · <strong>' + esc(claims.email) + '</strong></p>' +
+          listHtml(claims.steps) +
+          '<p class="muted">Notify within ' + esc(String(claims.notification_days || 7)) + ' days where reasonably practicable unless your policy states otherwise.</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>11. Endorsements &amp; extensions</h2><div class="body">' +
+          '<p class="muted">None on this certificate unless separately issued. Endorsements override conflicting wording.</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>12. Legal &amp; regulatory</h2><div class="body">' +
+          listHtml(legal.legal_notes) +
+          '<p class="muted">Complaints: ' + esc(legal.complaints_email || ins.enquiries_email) + '<br>' +
+          'Financial Ombudsman (UK): <a href="' + esc(legal.financial_ombudsman_url) + '">' + esc(legal.financial_ombudsman_url) + '</a><br>' +
+          esc(legal.privacy_note) + '</p>' +
+          '</div></div>' +
+
+          '<div class="section"><h2>13. Certificate of insurance (short form)</h2><div class="body">' +
+          '<div class="short-cert">' +
+          '<p style="margin:0"><strong>Certificate no.</strong> ' + esc(short.certificate_number) + '<br>' +
+          '<strong>Policy no.</strong> ' + esc(short.policy_number) + '<br>' +
+          '<strong>Named insured</strong> ' + esc(short.policyholder) + '<br>' +
+          (short.policyholder_address ? '<strong>Address</strong> ' + esc(short.policyholder_address) + '<br>' : '') +
+          '<strong>Cover</strong> ' + esc(short.coverage) + '<br>' +
+          '<strong>Period</strong> ' + esc(short.period) + '<br>' +
+          '<strong>Sum insured</strong> ' + esc(short.sum_insured) + ' · <strong>Excess</strong> ' + esc(short.excess) + '</p>' +
+          '</div>' +
+          '<p class="muted">This certificate is evidence of cover only and must be read with the full policy. Fraudulent use may void cover.</p>' +
+          '</div></div>' +
+          '</div>'
+        );
+      }
+
+      function renderLegacy() {
+        var insurer = params.get('insurer') || 'SafeCover Insurance Ltd';
+        var items = params.get('items') || 'Specified items per schedule';
+        var sumInsured = params.get('sum_insured') || '0';
+        var totalSum = params.get('total_sum') || sumInsured;
+        var premium = params.get('premium') || '0';
+        var effective = params.get('effective') || new Date().toISOString().slice(0, 10);
+        var duration = params.get('duration') || '12 months';
+        var excess = params.get('excess') || '50';
+        var cur = params.get('currency') || 'GBP';
+        var sym = symFor(cur);
+        var start = new Date(effective);
+        var end = new Date(start);
+        var dur = (duration || '').toLowerCase();
+        if (dur.indexOf('12') >= 0 || dur.indexOf('year') >= 0) end.setFullYear(end.getFullYear() + 1);
+        else if (dur.indexOf('month') >= 0) { var mo = parseInt(duration, 10) || 12; end.setMonth(end.getMonth() + mo); }
+        else if (dur.indexOf('day') >= 0) { var days = parseInt(duration, 10) || 7; end.setDate(end.getDate() + days); }
+        else end.setMonth(end.getMonth() + 1);
+
+        var html = (
+          '<h1>Insurance schedule (legacy link)</h1>' +
+          '<p class="sub">This page was opened with URL parameters only. Prefer the secure link with policy_id + token from your bind response.</p>' +
+          '<div class="section"><h2>Identification</h2><div class="body">' +
+          '<p>Policy: ' + esc(params.get('policy_id')) + '<br>Certificate: ' + esc(params.get('certificate_id')) + '<br>' +
+          'Insurer: ' + esc(insurer) + '<br>Policyholder: ' + esc(params.get('policyholder')) + '<br>Email: ' + esc(params.get('email')) + '<br>Transaction: ' + esc(params.get('transaction_id')) + '</p></div></div>' +
+          '<div class="section"><h2>Insured items</h2><div class="body">' +
+          items.split('|').map(function (i) { return '<p>• ' + esc(i.trim()) + '</p>'; }).join('') + '</div></div>' +
+          '<div class="section"><h2>Limits &amp; premium</h2><div class="body">' +
+          '<p>Sum insured: ' + sym + parseFloat(sumInsured).toLocaleString('en-GB') + '<br>Total: ' + sym + parseFloat(totalSum).toLocaleString('en-GB') + '<br>Excess: ' + sym + esc(excess) + '<br>Premium: ' + sym + parseFloat(premium).toFixed(2) + '</p>' +
+          '<p>Effective: ' + esc(effective) + '<br>Expiry (approx.): ' + esc(end.toISOString().slice(0, 10)) + '<br>Duration: ' + esc(duration) + '</p>' +
+          '</div></div>'
+        );
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('doc').style.display = 'block';
+        document.getElementById('doc').innerHTML = html;
+      }
+
+      function downloadRenderedCertificate(policyIdForName) {
+        try {
+          var styleEl = document.head.querySelector('style');
+          var styleText = styleEl ? (styleEl.textContent || '') : '';
+          var pid = policyIdForName || policyId || 'policy';
+          var safeFile = String(pid).replace(/[^a-zA-Z0-9_-]/g, '_');
+          var banner =
+            '<p class="no-print muted" style="margin-top:0">Saved copy — open this file in any browser. Keep it private (contains policy details).</p>';
+          var standalone =
+            '<!DOCTYPE html>\n<html lang="en-GB">\n<head>\n<meta charset="UTF-8">\n' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+            '<title>Certificate of insurance — ' +
+            esc(pid) +
+            '</title>\n<style>\n' +
+            styleText +
+            '\n</style>\n</head>\n<body>\n' +
+            banner +
+            document.getElementById('doc').innerHTML +
+            '\n</body>\n</html>';
+          var blob = new Blob([standalone], { type: 'text/html;charset=utf-8' });
+          var objUrl = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = objUrl;
+          a.download = 'SafeCover-certificate-' + safeFile + '.html';
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(objUrl);
+          }, 1500);
+        } catch (e) {
+          console.warn('Certificate download failed', e);
+        }
+      }
+
+      if (legacy || (!policyId || !token)) {
+        if (legacy || params.get('sum_insured')) {
+          renderLegacy();
+          return;
+        }
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Missing policy_id or token. Open the certificate_url returned from POST /api/policy/bind, or use legacy parameters (legacy=1).';
+        return;
+      }
+
+      var apiBase = '';
+      fetch(apiBase + '/api/public/certificate/' + encodeURIComponent(policyId) + '?token=' + encodeURIComponent(token))
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('doc').style.display = 'block';
+          document.getElementById('doc').innerHTML = renderFromPayload(data);
+          document.title = 'Certificate — ' + (data.policy_id || '');
+          if (params.get('download') === '1') {
+            downloadRenderedCertificate(data.policy_id || policyId);
+          }
+        })
+        .catch(function (e) {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('error').textContent = 'Could not load certificate: ' + (e.message || e) + '. Check policy_id, token, and server URL.';
+        });
     })();
   </script>
 </body>

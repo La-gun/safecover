@@ -283,9 +283,10 @@
         document.getElementById('safecover-widget-container').innerHTML = widgetHtml;
 
         var itemsForApi = data.items.map(function (i) { return { value: i.price }; });
+        currentScenario.quote_items = itemsForApi;
         fetch(API + '/api/quote', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({ items: itemsForApi, scenario: scenario.id })
         })
           .then(function (r) { return r.json(); })
@@ -329,12 +330,17 @@
             if (currentScenario) {
               fetch(API + '/api/policy/bind', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
                 body: JSON.stringify({
                   quote_id: currentScenario.quote_id || 'QTY' + Date.now(),
                   transaction_id: 'ORD_' + Date.now(),
-                  customer: { email: 'customer@example.com', name: 'Demo User' },
-                  items: [{ value: subtotal }],
+                  customer: {
+                    email: 'customer@example.com',
+                    name: 'Demo Policyholder',
+                    address: { line1: '123 Demo Street', city: 'New York', postal_code: '10001', country: 'US' },
+                  },
+                  billing: { cardholder_name: 'Demo Policyholder' },
+                  items: currentScenario.quote_items || [{ value: subtotal }],
                   premium_paid: premium,
                   scenario: currentScenario.id
                 })

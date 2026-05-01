@@ -256,6 +256,7 @@
     .doc-card .doc-footer { padding: 10px 16px; background: #fafafa; border-top: 1px solid #eee; }
     .doc-card .doc-footer button { padding: 8px 14px; font-size: 12px; background: #1a1a1a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
     .doc-card .doc-footer button:hover { background: #333; }
+    .doc-card .doc-footer button#btn-download-certificate:hover { background: #0a7c42; filter: brightness(1.08); }
     .success-banner { background: #dcfce7; color: #166534; padding: 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; }
   </style>
 </head>
@@ -285,6 +286,12 @@
             </div>
             <div class="kicker">Secure checkout</div>
           </div>
+          <div class="form-group" id="fg-policyholder-name">
+            <label for="policyholder-name">Full name (policyholder / named insured)</label>
+            <input id="policyholder-name" type="text" autocomplete="name" value="Demo Policyholder">
+            <div class="help-text">This exact person is the insured party on the policy and certificate. It must match the name on your payment card.</div>
+            <div class="field-error" id="err-policyholder-name">Enter the policyholder’s full name (at least 2 characters).</div>
+          </div>
           <div class="form-row">
             <div class="form-group" id="fg-email">
               <label for="email">Email</label>
@@ -298,20 +305,43 @@
             </div>
           </div>
           <div class="form-group" id="fg-address">
-            <label for="address">Address</label>
-            <input id="address" type="text" autocomplete="shipping street-address" value="123 Main St, New York, NY">
-            <div class="field-error" id="err-address">Enter your full delivery address.</div>
+            <label for="address">Street address (line 1)</label>
+            <input id="address" type="text" autocomplete="shipping address-line1" value="123 Main Street">
+            <div class="field-error" id="err-address">Enter the first line of your address (min. 3 characters).</div>
+          </div>
+          <div class="form-group" id="fg-address2">
+            <label for="address-line2">Address line 2 <span class="help-text" style="display:inline;font-weight:400">(optional)</span></label>
+            <input id="address-line2" type="text" autocomplete="shipping address-line2" placeholder="Apartment, suite, unit, building">
           </div>
           <div class="form-row">
             <div class="form-group" id="fg-city">
-              <label for="city">City</label>
+              <label for="city">City / Town</label>
               <input id="city" type="text" autocomplete="shipping address-level2" value="New York">
               <div class="field-error" id="err-city">City is required.</div>
             </div>
+            <div class="form-group" id="fg-region">
+              <label for="region">State / Province / County <span class="help-text" style="display:inline;font-weight:400">(optional)</span></label>
+              <input id="region" type="text" autocomplete="shipping address-level1" value="NY" placeholder="e.g. NY, CA, Greater London">
+            </div>
+          </div>
+          <div class="form-row">
             <div class="form-group" id="fg-zip">
               <label for="zip">ZIP / Postal code</label>
-              <input id="zip" type="text" inputmode="numeric" autocomplete="shipping postal-code" value="10001">
+              <input id="zip" type="text" autocomplete="shipping postal-code" value="10001">
               <div class="field-error" id="err-zip">Enter a valid ZIP / postal code.</div>
+            </div>
+            <div class="form-group" id="fg-shipping-country">
+              <label for="shipping-country">Country</label>
+              <select id="shipping-country" autocomplete="shipping country">
+                <option value="US" selected>United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="CA">Canada</option>
+                <option value="NG">Nigeria</option>
+                <option value="IE">Ireland</option>
+                <option value="AU">Australia</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+              </select>
             </div>
           </div>
         </div>
@@ -373,23 +403,80 @@
           <div class="card-header">
             <div>
               <h2 class="section-title" style="margin:0">Payment</h2>
-              <div class="section-subtitle">Demo card form for UX only. No real payment is processed.</div>
+              <div class="section-subtitle">Simulated card capture (no charge). The name on card must match the policyholder. The <strong>billing / policy address</strong> below is what appears on your certificate (must match your payment records where required). Completing pay runs bind → confirm so the policy becomes ACTIVE in the demo API.</div>
             </div>
+          </div>
+
+          <div style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border);">
+            <h3 class="subsection-title" style="margin:0 0 10px;font-size:15px;">Billing &amp; policy address</h3>
+            <label class="terms-checkbox" style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;cursor:pointer;">
+              <input type="checkbox" id="billing-same-as-shipping" checked style="margin-top:3px">
+              <span style="font-size:13px;line-height:1.45">Same as shipping address — we’ll copy your shipping details into the policy. Uncheck to enter a different <strong>insured / billing</strong> address.</span>
+            </label>
+            <div id="billing-address-panel">
+              <div class="form-group" id="fg-billing-line1">
+                <label for="billing-line1">Street address (line 1)</label>
+                <input id="billing-line1" type="text" autocomplete="billing address-line1" disabled>
+                <div class="field-error" id="err-billing-line1">Required (min. 3 characters).</div>
+              </div>
+              <div class="form-group" id="fg-billing-line2">
+                <label for="billing-line2">Address line 2 <span class="help-text" style="display:inline;font-weight:400">(optional)</span></label>
+                <input id="billing-line2" type="text" autocomplete="billing address-line2" disabled placeholder="Apartment, suite, etc.">
+              </div>
+              <div class="form-row">
+                <div class="form-group" id="fg-billing-city">
+                  <label for="billing-city">City / Town</label>
+                  <input id="billing-city" type="text" autocomplete="billing address-level2" disabled>
+                  <div class="field-error" id="err-billing-city">Required.</div>
+                </div>
+                <div class="form-group" id="fg-billing-region">
+                  <label for="billing-region">State / Province / County <span class="help-text" style="display:inline;font-weight:400">(optional)</span></label>
+                  <input id="billing-region" type="text" autocomplete="billing address-level1" disabled placeholder="e.g. NY, Greater London">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" id="fg-billing-postal">
+                  <label for="billing-postal">ZIP / Postal code</label>
+                  <input id="billing-postal" type="text" autocomplete="billing postal-code" disabled>
+                  <div class="field-error" id="err-billing-postal">Enter a valid postal code.</div>
+                </div>
+                <div class="form-group" id="fg-billing-country">
+                  <label for="billing-country">Country</label>
+                  <select id="billing-country" autocomplete="billing country" disabled>
+                    <option value="US">United States</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="CA">Canada</option>
+                    <option value="NG">Nigeria</option>
+                    <option value="IE">Ireland</option>
+                    <option value="AU">Australia</option>
+                    <option value="DE">Germany</option>
+                    <option value="FR">France</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" id="fg-card-name">
+            <label for="card-name">Name on card</label>
+            <input id="card-name" type="text" autocomplete="cc-name" value="Demo Policyholder">
+            <div class="help-text">Must match <strong>policyholder name</strong> (spacing and capitalisation are ignored).</div>
+            <div class="field-error" id="err-card-name">Name on card must match the policyholder name.</div>
           </div>
           <div class="form-group" id="fg-card">
             <label for="card-number">Card number</label>
-            <input id="card-number" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" maxlength="23">
+            <input id="card-number" type="text" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" maxlength="23" value="4242 4242 4242 4242">
             <div class="field-error" id="err-card">Enter a valid card number.</div>
           </div>
           <div class="form-row">
             <div class="form-group" id="fg-exp">
               <label for="card-exp">Expiry</label>
-              <input id="card-exp" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">
+              <input id="card-exp" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" value="12/30">
               <div class="field-error" id="err-exp">Enter a valid expiry (MM/YY).</div>
             </div>
             <div class="form-group" id="fg-cvc">
               <label for="card-cvc">CVC</label>
-              <input id="card-cvc" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4">
+              <input id="card-cvc" type="text" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" value="123">
               <div class="field-error" id="err-cvc">Enter a valid CVC.</div>
             </div>
           </div>
@@ -439,9 +526,10 @@
         <div class="doc-card" id="insurance-contract-card" style="display:none">
           <h3>Insurance contract (issued)</h3>
           <div class="doc-body" id="insurance-contract"></div>
-          <div class="doc-footer">
+          <div class="doc-footer" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
             <button type="button" id="btn-print-contract">Print</button>
-            <a id="btn-view-ipid" href="#" target="_blank" rel="noopener" style="margin-left:8px;font-size:13px">View IPID Certificate</a>
+            <button type="button" id="btn-download-certificate" style="display:none;background:#0a7c42">Download certificate</button>
+            <a id="btn-view-ipid" href="#" target="_blank" rel="noopener" style="display:none;font-size:13px;text-decoration:underline">Open in browser</a>
           </div>
         </div>
       </div>
@@ -976,7 +1064,71 @@
         fg.classList.toggle('has-error', !!hasError);
       }
 
+      function normalizeNameForMatch(s) {
+        try {
+          return String(s || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
+        } catch (e) {
+          return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+      }
+
+      function syncBillingFromShipping() {
+        document.getElementById('billing-line1').value = document.getElementById('address').value;
+        document.getElementById('billing-line2').value = document.getElementById('address-line2').value;
+        document.getElementById('billing-city').value = document.getElementById('city').value;
+        document.getElementById('billing-region').value = document.getElementById('region').value;
+        document.getElementById('billing-postal').value = document.getElementById('zip').value;
+        document.getElementById('billing-country').value = document.getElementById('shipping-country').value;
+      }
+
+      function setBillingPanelLocked(locked) {
+        ['billing-line1', 'billing-line2', 'billing-city', 'billing-region', 'billing-postal', 'billing-country'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.disabled = !!locked;
+        });
+      }
+
+      function onBillingSameAsShippingChange() {
+        var cb = document.getElementById('billing-same-as-shipping');
+        if (cb && cb.checked) {
+          syncBillingFromShipping();
+          setBillingPanelLocked(true);
+        } else {
+          setBillingPanelLocked(false);
+        }
+        updatePayButtonState();
+      }
+
+      function getInsuredAddressForBind() {
+        var same = document.getElementById('billing-same-as-shipping').checked;
+        if (same) {
+          return {
+            line1: (document.getElementById('address').value || '').trim(),
+            line2: (document.getElementById('address-line2').value || '').trim() || undefined,
+            city: (document.getElementById('city').value || '').trim(),
+            region: (document.getElementById('region').value || '').trim() || undefined,
+            postal_code: (document.getElementById('zip').value || '').trim(),
+            country: (document.getElementById('shipping-country').value || '').trim() || 'US',
+          };
+        }
+        return {
+          line1: (document.getElementById('billing-line1').value || '').trim(),
+          line2: (document.getElementById('billing-line2').value || '').trim() || undefined,
+          city: (document.getElementById('billing-city').value || '').trim(),
+          region: (document.getElementById('billing-region').value || '').trim() || undefined,
+          postal_code: (document.getElementById('billing-postal').value || '').trim(),
+          country: (document.getElementById('billing-country').value || '').trim() || 'US',
+        };
+      }
+
+      function validateCountrySelect(id) {
+        var el = document.getElementById(id);
+        return !!(el && (el.value || '').length >= 2);
+      }
+
       function validateCheckout() {
+        var policyholderName = (document.getElementById('policyholder-name').value || '').trim();
+        var cardName = (document.getElementById('card-name').value || '').trim();
         var email = (document.getElementById('email').value || '').trim();
         var address = (document.getElementById('address').value || '').trim();
         var city = (document.getElementById('city').value || '').trim();
@@ -984,24 +1136,51 @@
         var card = (document.getElementById('card-number').value || '').trim();
         var exp = (document.getElementById('card-exp').value || '').trim();
         var cvc = (document.getElementById('card-cvc').value || '').trim();
+        var sameBilling = document.getElementById('billing-same-as-shipping').checked;
 
+        var nameOk = policyholderName.length >= 2;
+        var namesMatchOk = normalizeNameForMatch(policyholderName) === normalizeNameForMatch(cardName) && cardName.length >= 2;
         var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        var addressOk = address.length >= 6;
+        var shipLineOk = address.length >= 3;
         var cityOk = city.length >= 2;
-        var zipOk = /^[A-Za-z0-9][A-Za-z0-9 \-]{2,10}$/.test(zip);
+        var zipOk = /^[A-Za-z0-9][A-Za-z0-9 \-]{2,11}$/.test(zip);
+        var shipCountryOk = validateCountrySelect('shipping-country');
         var cardOk = luhnCheck(card);
         var expOk = /^(0[1-9]|1[0-2])\/\d{2}$/.test(exp);
         var cvcOk = /^\d{3,4}$/.test(normalizeDigits(cvc));
 
+        var ins = getInsuredAddressForBind();
+        var insuredOk =
+          ins.line1.length >= 3 &&
+          ins.city.length >= 2 &&
+          /^[A-Za-z0-9][A-Za-z0-9 \-]{2,11}$/.test(ins.postal_code) &&
+          (ins.country || '').length >= 2;
+
+        setFieldError('fg-policyholder-name', !nameOk);
+        setFieldError('fg-card-name', !namesMatchOk);
         setFieldError('fg-email', !emailOk);
-        setFieldError('fg-address', !addressOk);
+        setFieldError('fg-address', !shipLineOk);
         setFieldError('fg-city', !cityOk);
         setFieldError('fg-zip', !zipOk);
+        setFieldError('fg-shipping-country', !shipCountryOk);
         setFieldError('fg-card', !cardOk);
         setFieldError('fg-exp', !expOk);
         setFieldError('fg-cvc', !cvcOk);
 
-        return emailOk && addressOk && cityOk && zipOk && cardOk && expOk && cvcOk;
+        if (!sameBilling) {
+          setFieldError('fg-billing-line1', ins.line1.length < 3);
+          setFieldError('fg-billing-city', ins.city.length < 2);
+          setFieldError('fg-billing-postal', !/^[A-Za-z0-9][A-Za-z0-9 \-]{2,11}$/.test(ins.postal_code));
+          setFieldError('fg-billing-country', !validateCountrySelect('billing-country'));
+        } else {
+          setFieldError('fg-billing-line1', false);
+          setFieldError('fg-billing-city', false);
+          setFieldError('fg-billing-postal', false);
+          setFieldError('fg-billing-country', false);
+        }
+
+        var shippingOk = shipLineOk && cityOk && zipOk && shipCountryOk;
+        return nameOk && namesMatchOk && emailOk && shippingOk && insuredOk && cardOk && expOk && cvcOk;
       }
 
       function updatePayButtonState() {
@@ -1147,6 +1326,24 @@
 
       var orderId = 'ORD_' + Date.now();
 
+      function setCertificateActions(certificateUrl) {
+        var dl = document.getElementById('btn-download-certificate');
+        var view = document.getElementById('btn-view-ipid');
+        if (certificateUrl) {
+          if (dl) {
+            dl.dataset.certificateUrl = certificateUrl;
+            dl.style.display = 'inline-block';
+          }
+          if (view) {
+            view.href = certificateUrl;
+            view.style.display = 'inline';
+          }
+        } else {
+          if (dl) dl.style.display = 'none';
+          if (view) view.style.display = 'none';
+        }
+      }
+
       function renderItemsInvoice() {
         var items = getCheckoutItems();
         var cartVal = getItemsNetTotal();
@@ -1155,8 +1352,22 @@
         var html = '';
         html += '<div class="row"><strong>Invoice #</strong><span>' + orderId + '</span></div>';
         html += '<div class="row"><strong>Date</strong><span>' + new Date().toLocaleDateString() + '</span></div>';
-        html += '<div class="row"><strong>Customer</strong><span>' + ((document.getElementById('email').value || 'customer@example.com')) + '</span></div>';
-        html += '<div class="row"><strong>Address</strong><span>' + ((document.getElementById('address').value || '—')) + '</span></div>';
+        html += '<div class="row"><strong>Policyholder</strong><span>' + escapeHtml((document.getElementById('policyholder-name').value || '—')) + '</span></div>';
+        html += '<div class="row"><strong>Email</strong><span>' + escapeHtml((document.getElementById('email').value || 'customer@example.com')) + '</span></div>';
+        (function () {
+          var ia = getInsuredAddressForBind();
+          var shipParts = [
+            document.getElementById('address').value,
+            document.getElementById('address-line2').value,
+            document.getElementById('city').value,
+            document.getElementById('region').value,
+            document.getElementById('zip').value,
+            document.getElementById('shipping-country').value,
+          ].filter(Boolean);
+          var insParts = [ia.line1, ia.line2, ia.city, ia.region, ia.postal_code, ia.country].filter(Boolean);
+          html += '<div class="row"><strong>Shipping address</strong><span>' + escapeHtml(shipParts.join(', ') || '—') + '</span></div>';
+          html += '<div class="row"><strong>Policy / billing address</strong><span>' + escapeHtml(insParts.join(', ') || '—') + '</span></div>';
+        })();
         html += '<div class="row" style="border-top:1px solid #ddd;margin-top:8px;padding-top:8px"></div>';
         items.forEach(function (i) {
           html += '<div class="row"><span>' + i.name + ' (x' + i.qty + ')</span><span>$' + (i.price * i.qty).toFixed(2) + '</span></div>';
@@ -1173,6 +1384,13 @@
         var html = '';
         html += '<div class="row"><strong>Invoice #</strong><span>INV-' + (policy.policy_id || orderId) + '</span></div>';
         html += '<div class="row"><strong>Policy ID</strong><span>' + (policy.policy_id || '—') + '</span></div>';
+        if (policy.customer && policy.customer.name) {
+          html += '<div class="row"><strong>Policyholder</strong><span>' + escapeHtml(policy.customer.name) + '</span></div>';
+          var invAd = policy.customer.address;
+          if (invAd) {
+            html += '<div class="row"><strong>Insured address</strong><span>' + escapeHtml([invAd.line1, invAd.city, invAd.postal_code].filter(Boolean).join(', ')) + '</span></div>';
+          }
+        }
         html += '<div class="row"><strong>Provider</strong><span>' + (policy.provider_name || (opt && opt.label)) + '</span></div>';
         html += '<div class="row"><strong>Plan</strong><span>' + (opt ? opt.label : policy.plan_id) + '</span></div>';
         html += '<div class="row"><strong>Coverage mode</strong><span>' + (coverageMode === 'whole' ? 'Whole cart' : 'Selected items') + '</span></div>';
@@ -1196,7 +1414,18 @@
         html += '<div class="row"><strong>Max value</strong><span>$' + (policy.coverage_details && policy.coverage_details.max_value || 0).toLocaleString() + '</span></div>';
         html += '<div class="row"><strong>Duration</strong><span>' + (policy.coverage_details && policy.coverage_details.duration || '—') + '</span></div>';
         html += '<div class="row"><strong>Transaction ID</strong><span>' + (policy.transaction_id || '—') + '</span></div>';
-        html += '<div class="row"><strong>Customer</strong><span>' + (policy.customer && policy.customer.email || '—') + '</span></div>';
+        html += '<div class="row"><strong>Policy status</strong><span>' + (policy.status || '—') + '</span></div>';
+        if (policy.payment_reference) html += '<div class="row"><strong>Payment reference</strong><span>' + escapeHtml(policy.payment_reference) + '</span></div>';
+        if (policy.confirmed_at) html += '<div class="row"><strong>Confirmed at</strong><span>' + escapeHtml(policy.confirmed_at) + '</span></div>';
+        if (policy.customer) {
+          html += '<div class="row"><strong>Policyholder</strong><span>' + escapeHtml(policy.customer.name || '—') + '</span></div>';
+          var adr = policy.customer.address;
+          if (adr) {
+            var adrStr = [adr.line1, adr.line2, adr.city, adr.postal_code, adr.country].filter(Boolean).join(', ');
+            html += '<div class="row"><strong>Insured address</strong><span>' + escapeHtml(adrStr || '—') + '</span></div>';
+          }
+          html += '<div class="row"><strong>Email</strong><span>' + escapeHtml(policy.customer.email || '—') + '</span></div>';
+        }
         html += '<div class="row"><strong>Issued</strong><span>' + (policy.recorded_at || new Date().toISOString()) + '</span></div>';
         if (policy.tx_hash) html += '<div class="row"><strong>Blockchain TX</strong><span>' + policy.tx_hash + '</span></div>';
         if (policy.contract_address) html += '<div class="row"><strong>Contract</strong><span>' + policy.contract_address + '</span></div>';
@@ -1213,8 +1442,8 @@
         setInlinePayMsg('');
         document.getElementById('terms-accept-row').classList.remove('attention');
         if (!validateCheckout()) {
-          setInlinePayMsg('Check the highlighted fields, then try again.');
-          document.getElementById('shipping-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setInlinePayMsg('Check the highlighted fields (shipping, billing address, or card), then try again.');
+          document.getElementById('payment-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
           setStepState('step-shipping', 'active');
           setStepState('step-payment', 'active');
           return;
@@ -1245,53 +1474,110 @@
           return;
         }
 
+        var bindFailed = false;
+        var customerEmail = (document.getElementById('email').value || '').trim() || 'customer@example.com';
+        var phName = (document.getElementById('policyholder-name').value || '').trim();
+        var insuredAddr = getInsuredAddressForBind();
+        var phoneVal = (document.getElementById('phone').value || '').trim();
+        var cardNameVal = (document.getElementById('card-name').value || '').trim();
+        var payRef = 'pay_demo_' + Date.now();
         fetch(API + '/api/policy/bind', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
           body: JSON.stringify({
             quote_id: selectedOption.quote_id,
             transaction_id: orderId,
-            customer: { email: 'customer@example.com', name: 'Demo User' },
+            customer: {
+              name: phName,
+              email: customerEmail,
+              phone: phoneVal || undefined,
+              address: {
+                line1: insuredAddr.line1,
+                line2: insuredAddr.line2,
+                city: insuredAddr.city,
+                region: insuredAddr.region,
+                postal_code: insuredAddr.postal_code,
+                country: insuredAddr.country,
+              },
+            },
+            billing: { cardholder_name: cardNameVal },
             premium_paid: selectedOption.premium,
             provider_id: selectedOption.provider_id,
             plan_id: selectedOption.plan_id,
             scenario: scenarioId,
-            jurisdiction: 'US'
+            jurisdiction: 'US',
+            items: getItemsForQuote().map(function (i) { return { value: i.value, name: i.name }; })
           })
         })
-          .then(function (r) { return r.json(); })
-          .then(function (res) {
-            document.getElementById('success-banner').textContent = 'Order complete. Policy ' + res.policy_id + ' issued with ' + (res.provider_name || selectedOption.label) + '.';
+          .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+          .then(function (out) {
+            if (!out.ok || !out.body.policy_id) {
+              var bindErr = new Error(out.body.error || 'Could not reserve protection.');
+              bindErr.phase = 'bind';
+              throw bindErr;
+            }
+            return fetch(API + '/api/policy/confirm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+              body: JSON.stringify({
+                policy_id: out.body.policy_id,
+                transaction_id: orderId,
+                payment_reference: payRef
+              })
+            }).then(function (cr) {
+              return cr.json().then(function (cbody) {
+                return { bind: out.body, confirmOk: cr.ok, confirm: cbody };
+              });
+            });
+          })
+          .then(function (pack) {
+            var res = pack.bind;
+            var conf = pack.confirm || {};
+            if (!pack.confirmOk || conf.error) {
+              document.getElementById('success-banner').textContent =
+                'Order complete. Policy ' + res.policy_id + ' reserved (PENDING_PAYMENT). Confirm failed: ' + (conf.error || 'unknown') + '.';
+            } else {
+              document.getElementById('success-banner').textContent =
+                'Payment captured (demo). Policy ' + res.policy_id + ' is ' + (conf.status || 'ACTIVE') + ' with ' + (res.provider_name || selectedOption.label) + ' — reference ' + payRef + '.';
+            }
             document.getElementById('insurance-invoice-card').style.display = 'block';
             document.getElementById('insurance-contract-card').style.display = 'block';
-            var certLink = document.getElementById('btn-view-ipid');
-            if (certLink && res.certificate_url) {
-              certLink.href = res.certificate_url;
-              certLink.style.display = 'inline';
-            } else if (certLink) certLink.style.display = 'none';
+            setCertificateActions(res.certificate_url || null);
             return fetch(API + '/api/policy/' + res.policy_id, { headers: { 'X-API-Key': 'demo' } });
           })
           .then(function (r) { return r.json(); })
           .then(function (policy) {
             renderInsuranceInvoice(policy, selectedOption);
             renderInsuranceContract(policy);
-            var certLink = document.getElementById('btn-view-ipid');
-            if (certLink && policy.certificate_url) {
-              certLink.href = policy.certificate_url;
-              certLink.style.display = 'inline';
-            }
+            setCertificateActions(policy.certificate_url || null);
           })
-          .catch(function () {
+          .catch(function (err) {
+            if (err && err.phase === 'bind') {
+              bindFailed = true;
+              setInlinePayMsg(err.message);
+              document.getElementById('success-banner').textContent = err.message;
+              document.getElementById('insurance-invoice-card').style.display = 'none';
+              document.getElementById('insurance-contract-card').style.display = 'none';
+              setCertificateActions(null);
+              return;
+            }
             document.getElementById('success-banner').textContent = 'Order complete. Protection added: ' + selectedOption.label + ' (policy details unavailable).';
             document.getElementById('insurance-invoice-card').style.display = 'block';
             document.getElementById('insurance-contract-card').style.display = 'block';
+            setCertificateActions(null);
             renderInsuranceInvoice({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, coverage_details: {} }, selectedOption);
-            renderInsuranceContract({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, plan_id: selectedOption.plan_id, coverage_details: {}, transaction_id: orderId, customer: { email: 'customer@example.com' }, recorded_at: new Date().toISOString() });
+            renderInsuranceContract({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, plan_id: selectedOption.plan_id, coverage_details: {}, transaction_id: orderId, customer: { email: customerEmail }, recorded_at: new Date().toISOString(), status: 'UNKNOWN' });
           })
           .finally(function () {
-            btn.textContent = 'Paid $' + (getItemsNetTotal() + getItemsVatAmount() + (selectedOption ? (selectedOption.premium + getProtectionVatAmount()) : 0)).toFixed(2);
             btn.disabled = false;
-            setStepState('step-payment', 'done');
+            var total = getItemsNetTotal() + getItemsVatAmount() + (selectedOption ? (selectedOption.premium + getProtectionVatAmount()) : 0);
+            if (bindFailed) {
+              btn.textContent = 'Pay $' + total.toFixed(2);
+              setStepState('step-payment', 'active');
+            } else {
+              btn.textContent = 'Paid $' + total.toFixed(2);
+              setStepState('step-payment', 'done');
+            }
           });
       };
 
@@ -1312,6 +1598,18 @@
         w.document.write('<html><head><title>Insurance Contract</title></head><body>' + document.getElementById('insurance-contract').innerHTML + '</body></html>');
         w.document.close();
         w.print();
+      };
+      document.getElementById('btn-download-certificate').onclick = function () {
+        var raw = this.dataset.certificateUrl;
+        if (!raw) return;
+        var u;
+        try {
+          u = new URL(raw, window.location.origin);
+        } catch (e) {
+          return;
+        }
+        u.searchParams.set('download', '1');
+        window.open(u.toString(), '_blank', 'noopener');
       };
 
       document.getElementById('btn-desktop').onclick = function () {
@@ -1345,11 +1643,31 @@
         updatePayButtonState();
       });
       document.getElementById('card-cvc').addEventListener('input', function () { updatePayButtonState(); });
-      ['email', 'address', 'city', 'zip', 'phone'].forEach(function (id) {
+      ['policyholder-name', 'card-name', 'email', 'address', 'address-line2', 'city', 'region', 'zip', 'phone'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function () {
+          if (document.getElementById('billing-same-as-shipping').checked) syncBillingFromShipping();
+          updatePayButtonState();
+        });
+      });
+      var shipCountryEl = document.getElementById('shipping-country');
+      if (shipCountryEl) {
+        shipCountryEl.addEventListener('change', function () {
+          if (document.getElementById('billing-same-as-shipping').checked) syncBillingFromShipping();
+          updatePayButtonState();
+        });
+      }
+      ['billing-line1', 'billing-line2', 'billing-city', 'billing-region', 'billing-postal'].forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('input', function () { updatePayButtonState(); });
       });
+      var billCountryEl = document.getElementById('billing-country');
+      if (billCountryEl) billCountryEl.addEventListener('change', function () { updatePayButtonState(); });
+
+      var billSameEl = document.getElementById('billing-same-as-shipping');
+      if (billSameEl) billSameEl.addEventListener('change', onBillingSameAsShippingChange);
 
       document.getElementById('terms-accept').addEventListener('change', function () {
         document.getElementById('terms-accept-row').classList.toggle('attention', selectedOption && !this.checked);
@@ -1360,6 +1678,7 @@
       renderCartItemsMain();
       fetchAndRenderOptions();
       updateSummary(selectedOption);
+      onBillingSameAsShippingChange();
       updatePayButtonState();
     })();
   </script>

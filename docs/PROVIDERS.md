@@ -13,6 +13,8 @@ SafeCover supports multiple insurance providers on the same checkout page. Custo
 
 ## API
 
+Retail **POS** integrations use **`POST /api/pos/enhanced`** (`operation: "quote"` / `"bind"` / `"confirm"` / `"sale"`) with the same `provider_id` and `plan_id` rules at bind. See [API.md](API.md) (POS Enhanced) and [INTEGRATION-POS.md](INTEGRATION-POS.md).
+
 ### Get all providers
 ```
 GET /api/providers

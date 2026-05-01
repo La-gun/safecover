@@ -9,7 +9,7 @@ Mapping of the **Embedded Micro-Insurance Platform Business Model** white paper 
 | White Paper Concept | Implementation | Location |
 |---------------------|----------------|----------|
 | **B2B2C Distribution via API** | API plugs into merchant checkout | `backend/server.js` – all endpoints |
-| **Insurance API at point-of-sale** | Quote, bind, confirm, webhook endpoints | `backend/server.js` L43–135 |
+| **Insurance API at point-of-sale** | Quote, bind, confirm, webhook; retail POS unified endpoint | `backend/server.js`; `POST /api/pos/enhanced` in `backend/services/posEnhanced.js` |
 | **Lightweight widgets / direct API calls** | Universal widget + platform adapters | `frontend/safecover-widget.js`, `frontend/adapters/*.js` |
 | **B2C Direct Sales** | Widget demo, standalone purchase flow | `frontend/widget.html` |
 | **Revenue Model (commission/revenue-share)** | Not implemented (demo only) | — |
@@ -38,7 +38,7 @@ Mapping of the **Embedded Micro-Insurance Platform Business Model** white paper 
 
 | White Paper | Implementation | Location |
 |-------------|----------------|----------|
-| Quote request with transaction data | `POST /api/quote` accepts `items`, `scenario` | `backend/server.js` L83–108 |
+| Quote request with transaction data | `POST /api/quote` accepts `items`, `scenario`; POS: `POST /api/pos/enhanced` `operation: "quote"` | `backend/server.js`; `backend/services/posEnhanced.js` |
 | Product engine matches data to product | Scenario-based `premium_rate` per industry | `backend/scenarios.js`, `backend/providers.js` |
 | Dynamic, data-driven pricing | `value × premium_rate` per scenario/plan | `backend/server.js` L96–97, `backend/providers.js` |
 | Multi-provider quote comparison | `POST /api/quote/compare` returns all options | `backend/server.js` L43–80 |
@@ -55,7 +55,7 @@ Mapping of the **Embedded Micro-Insurance Platform Business Model** white paper 
 
 | White Paper | Implementation | Location |
 |-------------|----------------|----------|
-| Bind request on purchase confirmation | `POST /api/policy/bind` | `backend/server.js` L110–145 |
+| Bind request on purchase confirmation | `POST /api/policy/bind`; POS: `POST /api/pos/enhanced` `operation: "bind"` or `"sale"` | `backend/server.js`; `backend/services/posEnhanced.js` |
 | Policy issuance | Returns `policy_id`, `coverage_details` | `backend/server.js` L132–142 |
 | Policy confirmation to customer | Status message in UI | `frontend/checkout-ux-demo.html` L275–285 |
 
@@ -109,7 +109,8 @@ Mapping of the **Embedded Micro-Insurance Platform Business Model** white paper 
 | BigCommerce | Adapter | `frontend/adapters/bigcommerce.js` |
 | Magento | Adapter | `frontend/adapters/magento.js` |
 | Generic/custom platforms | Generic adapter | `frontend/adapters/generic.js` |
-| API documentation | API reference | `docs/API.md` |
+| API documentation | API reference + POS Enhanced | `docs/API.md`, `docs/INTEGRATION-POS.md` |
+| Retail POS | Server-side terminal + ticket flow | `docs/INTEGRATION-POS.md`, `backend/services/posEnhanced.js` |
 | SDKs / integration kits | Embed snippets | `frontend/embed-snippet.html` |
 
 ---
@@ -134,6 +135,7 @@ Mapping of the **Embedded Micro-Insurance Platform Business Model** white paper 
 | Policy bind | `POST /api/policy/bind` | `server.js` L111 |
 | Policy confirm (post-payment) | `POST /api/policy/confirm` | `server.js` L124 |
 | Webhook (order/payment events) | `POST /api/webhook` | `server.js` L148 |
+| POS (quote / bind / confirm / sale) | `POST /api/pos/enhanced` | `server.js` (route); `posEnhanced.js` |
 | Provider list | `GET /api/providers` | `server.js` L41 |
 | Scenario list | `GET /api/scenarios` | `server.js` L156 |
 
@@ -222,9 +224,11 @@ Phase 3 (Scale)
 ```
 6/
 ├── backend/
-│   ├── server.js          # API routes, quote, bind, confirm, webhook
+│   ├── server.js          # API routes, quote, bind, confirm, webhook, POS route
 │   ├── providers.js       # Multi-provider marketplace config
-│   └── scenarios.js       # Industry scenarios (logistics, healthcare, etc.)
+│   ├── scenarios.js       # Industry scenarios (logistics, healthcare, etc.)
+│   └── services/
+│       └── posEnhanced.js # POS enhanced: terminal, line items, sale flow
 ├── frontend/
 │   ├── safecover-widget.js # Universal embeddable widget
 │   ├── checkout-ux-demo.html   # Multi-provider checkout
@@ -240,6 +244,7 @@ Phase 3 (Scale)
 │   └── safecover-insurance-checkout.php
 └── docs/
     ├── API.md
+    ├── INTEGRATION-POS.md
     ├── INTEGRATION-SHOPIFY.md
     ├── INTEGRATION-WOOCOMMERCE.md
     ├── PROVIDERS.md

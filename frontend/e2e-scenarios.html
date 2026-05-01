@@ -110,7 +110,7 @@
 
           fetch(API + '/api/quote', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
             body: JSON.stringify({ items: s.items, scenario: s.id })
           })
             .then(function (r) { return r.json(); })
@@ -119,13 +119,19 @@
               updateCard(s.id, 'running', 'Quote: <span class="' + (q.premium != null ? 'ok' : 'err') + '">' + steps.quote + '</span> | Bind: … | Policy: …');
               return fetch(API + '/api/policy/bind', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
                 body: JSON.stringify({
                   quote_id: q.quote_id || 'QTY' + Date.now(),
                   transaction_id: 'ORD_' + Date.now() + '_' + s.id,
-                  customer: { email: 'e2e@test.com', name: 'E2E User' },
+                  customer: {
+                    email: 'e2e@test.com',
+                    name: 'E2E User',
+                    address: { line1: '1 Test Street', city: 'London', postal_code: 'E1 1AA', country: 'GB' },
+                  },
+                  billing: { cardholder_name: 'E2E User' },
                   premium_paid: q.premium || 1,
-                  scenario: s.id
+                  scenario: s.id,
+                  items: s.items,
                 })
               });
             })

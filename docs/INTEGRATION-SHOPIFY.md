@@ -190,3 +190,10 @@ export async function run(input) {
 1. Use Shopify dev store with test checkout
 2. Set API URL to `http://localhost:3000` for local testing (use ngrok for webhooks)
 3. Place test order and verify policy bind + confirm flow
+
+---
+
+## See also
+
+- [POS integration](INTEGRATION-POS.md) — in-store registers via `POST /api/pos/enhanced` (server-side; not the checkout widget)
+- [API reference](API.md) — all endpoints including POS Enhanced

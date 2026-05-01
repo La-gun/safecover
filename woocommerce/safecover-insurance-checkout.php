@@ -99,11 +99,27 @@ function safecover_send_policy($order_id) {
     $quote_id = get_post_meta($order_id, 'safecover_quote_id', true) ?: 'QTY' . time();
     $premium = (float) get_post_meta($order_id, 'safecover_premium', true) ?: 3.12;
 
+    $policyholder_name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name());
+    if ($policyholder_name === '') {
+        $policyholder_name = trim((string) $order->get_billing_email());
+    }
+
     $data = [
         'transaction_id' => (string) $order_id,
         'customer' => [
             'email' => $order->get_billing_email(),
-            'name' => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
+            'name' => $policyholder_name,
+            'phone' => $order->get_billing_phone(),
+            'address' => [
+                'line1' => (string) $order->get_billing_address_1(),
+                'line2' => (string) $order->get_billing_address_2(),
+                'city' => (string) $order->get_billing_city(),
+                'postal_code' => (string) $order->get_billing_postcode(),
+                'country' => (string) $order->get_billing_country(),
+            ],
+        ],
+        'billing' => [
+            'cardholder_name' => $policyholder_name,
         ],
         'premium_paid' => $premium,
         'quote_id' => $quote_id,
