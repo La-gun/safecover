@@ -1,0 +1,17 @@
+{
+  "services": {
+    "api-gateway": {
+      "source": {
+        "repo": "La-gun/safecover",
+        "branch": "main",
+        "rootDirectory": ""
+      },
+      "build": {
+        "buildCommand": ""
+      },
+      "deploy": {
+        "startCommand": ""
+      }
+    }
+  }
+}
