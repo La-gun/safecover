@@ -198,6 +198,48 @@
     .other-options-list.show { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     @media (min-width: 600px) { .other-options-list.show { grid-template-columns: repeat(4, 1fr); } }
     .scenario-compact-opt { padding: 6px 10px; font-size: 12px; }
+    /* Industry vertical chips (demo) */
+    .industry-demo-card .section-subtitle { max-width: 720px; }
+    .industry-chip-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 4px;
+    }
+    .checkout-frame.mobile .industry-chip-wrap { justify-content: flex-start; }
+    .industry-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      line-height: 1.2;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .industry-chip:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+    .industry-chip:focus {
+      outline: none;
+      border-color: var(--focus);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    }
+    .industry-chip.selected {
+      background: #0f172a;
+      color: #fff;
+      border-color: #0f172a;
+    }
+    .industry-chip-icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
+    .industry-chip-label { text-align: left; }
     .subsection-title { font-size: 15px; font-weight: 650; margin: 16px 0 8px; }
     .subsection-desc { font-size: 13px; color: #666; margin: 0 0 12px; }
     .cart-items-main { margin: 16px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e8e8e8; }
@@ -360,6 +402,16 @@
             </div>
             <div style="font-weight:700;">Free</div>
           </div>
+        </div>
+
+        <div class="card industry-demo-card" id="industry-demo-card">
+          <div class="card-header">
+            <div>
+              <h2 class="section-title" style="margin:0">Industry</h2>
+              <div class="section-subtitle">Pick a vertical to load a representative cart and run quotes for that scenario (same API as production-style bind).</div>
+            </div>
+          </div>
+          <div id="scenario-compact" class="industry-chip-wrap" role="tablist" aria-label="Industry vertical"></div>
         </div>
 
         <div class="protection-section card" style="padding:16px;">
@@ -539,11 +591,88 @@
   <script>
     (function () {
       var API = window.location.origin;
-      var cartItems = [
-        { id: '1', name: 'Wireless Headphones', qty: 1, price: 89, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=96&h=96&fit=crop' },
-        { id: '2', name: 'USB-C Cable Pack', qty: 2, price: 24, image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=96&h=96&fit=crop' },
-        { id: '3', name: 'Laptop Stand', qty: 1, price: 45, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=96&h=96&fit=crop' }
+      var SCENARIO_ORDER = [
+        'logistics', 'healthcare', 'hospitality', 'food', 'cyber', 'mobility', 'parametric',
+        'retail', 'gadgets', 'events', 'jewellery',
       ];
+      var SCENARIO_ICONS = {
+        logistics: '📦',
+        healthcare: '🏥',
+        hospitality: '🏨',
+        food: '🍔',
+        cyber: '🔐',
+        mobility: '🚗',
+        parametric: '🌩️',
+        retail: '🛒',
+        gadgets: '📱',
+        events: '🎫',
+        jewellery: '💎',
+      };
+      var SCENARIO_CARTS = {
+        logistics: [
+          { id: '1', name: 'Commercial parcel — express freight', qty: 1, price: 420, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=96&h=96&fit=crop' },
+          { id: '2', name: 'GPS shipment tracker (fleet)', qty: 3, price: 55, image: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Thermal pallet liners (case)', qty: 1, price: 180, image: 'https://images.unsplash.com/photo-1605745341112-85968b19335b?w=96&h=96&fit=crop' },
+        ],
+        healthcare: [
+          { id: '1', name: 'Home diagnostics kit', qty: 1, price: 129, image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Telehealth visit pack (5 sessions)', qty: 1, price: 199, image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Medical courier — chilled specimen', qty: 1, price: 85, image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=96&h=96&fit=crop' },
+        ],
+        hospitality: [
+          { id: '1', name: 'City break — hotel (2 nights)', qty: 1, price: 389, image: 'https://images.unsplash.com/photo-1566073771259-6a850e994ba6?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Airport lounge passes (pair)', qty: 1, price: 95, image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Travel adapter + luggage tag set', qty: 2, price: 34, image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=96&h=96&fit=crop' },
+        ],
+        food: [
+          { id: '1', name: 'Chef’s tasting menu (2 guests)', qty: 1, price: 220, image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Cold-chain meal delivery (weekly)', qty: 1, price: 79, image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Specialty coffee subscription', qty: 1, price: 48, image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=96&h=96&fit=crop' },
+        ],
+        cyber: [
+          { id: '1', name: 'Privacy & VPN bundle (annual)', qty: 1, price: 99, image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Hardware security keys (2-pack)', qty: 1, price: 59, image: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Encrypted portable SSD 1TB', qty: 1, price: 149, image: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=96&h=96&fit=crop' },
+        ],
+        mobility: [
+          { id: '1', name: 'Rideshare credit bundle', qty: 1, price: 120, image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Dash cam + phone mount kit', qty: 1, price: 189, image: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=96&h=96&fit=crop' },
+          { id: '3', name: 'E-scooter day rental', qty: 2, price: 35, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=96&h=96&fit=crop' },
+        ],
+        parametric: [
+          { id: '1', name: 'Outdoor festival tickets (rain cover)', qty: 2, price: 110, image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Golf outing — weather guarantee', qty: 1, price: 165, image: 'https://images.unsplash.com/photo-1535131749006-b7d58a90ae77?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Marathon entry + deferral option', qty: 1, price: 95, image: 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=96&h=96&fit=crop' },
+        ],
+        retail: [
+          { id: '1', name: 'Merino crewneck sweater', qty: 1, price: 79, image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Stoneware mug set (4)', qty: 1, price: 52, image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Scented candle trio', qty: 2, price: 28, image: 'https://images.unsplash.com/photo-1603006905004-6f8c1cfbcf37?w=96&h=96&fit=crop' },
+        ],
+        gadgets: [
+          { id: '1', name: 'Wireless headphones', qty: 1, price: 89, image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=96&h=96&fit=crop' },
+          { id: '2', name: 'USB-C cable pack', qty: 2, price: 24, image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Laptop stand (aluminium)', qty: 1, price: 45, image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=96&h=96&fit=crop' },
+        ],
+        events: [
+          { id: '1', name: 'Arena concert — reserved seats (2)', qty: 1, price: 320, image: 'https://images.unsplash.com/photo-1501281661665-15d80bc42c55?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Service & booking fees', qty: 1, price: 48, image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Event parking (prepaid)', qty: 1, price: 42, image: 'https://images.unsplash.com/photo-1506521781263-d8422e82f27a?w=96&h=96&fit=crop' },
+        ],
+        jewellery: [
+          { id: '1', name: '18k gold chain (insured shipping)', qty: 1, price: 920, image: 'https://images.unsplash.com/photo-1617038260897-41a1f14a44ea?w=96&h=96&fit=crop' },
+          { id: '2', name: 'Automatic watch — service plan', qty: 1, price: 135, image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=96&h=96&fit=crop' },
+          { id: '3', name: 'Ring resizing & appraisal', qty: 1, price: 95, image: 'https://images.unsplash.com/photo-1605100804769-903f164cdc1b?w=96&h=96&fit=crop' },
+        ],
+      };
+      function cloneScenarioCart(id) {
+        var rows = SCENARIO_CARTS[id] || SCENARIO_CARTS.retail;
+        return rows.map(function (r) {
+          return { id: r.id, name: r.name, qty: r.qty, price: r.price, image: r.image };
+        });
+      }
+      var scenarioId = 'logistics';
+      var cartItems = cloneScenarioCart(scenarioId);
       // Two-layer model:
       // - cartSelectedIds: what is currently in the order (checkout summary drives eligibility)
       // - insuredIds: subset of cartSelectedIds the buyer wants to insure (protection UI drives insured scope)
@@ -553,20 +682,19 @@
       var selectedOption = null;
       var allOptions = [];
       var lastRecommended = null;
-      var scenarioId = 'retail';
-      var scenarioSuggested = false;
       var SCENARIO_LABELS = {
-        retail: 'Retail & E-commerce',
         logistics: 'Logistics & Shipping',
-        gadgets: 'Gadgets & Electronics',
+        healthcare: 'Healthcare',
         hospitality: 'Hospitality & Travel',
         food: 'Food & Delivery',
-        healthcare: 'Healthcare',
-        events: 'Events & Ticketing',
+        cyber: 'Cyber & Digital',
         mobility: 'Mobility & Gig Economy',
-        jewellery: 'Jewellery & Watch'
+        parametric: 'Parametric (Climate/Events)',
+        retail: 'Retail & E-commerce',
+        gadgets: 'Gadgets & Electronics',
+        events: 'Events & Ticketing',
+        jewellery: 'Jewellery & Watch',
       };
-      var SCENARIO_TOP4 = ['retail', 'logistics', 'gadgets', 'hospitality'];
 
       var BASE = window.location.origin;
       var FALLBACK_OPTIONS = [
@@ -880,35 +1008,39 @@
         else selectProtectionOption(null);
       }
 
+      function applyScenarioCart(id) {
+        cartItems = cloneScenarioCart(id);
+        cartSelectedIds = new Set(cartItems.map(function (i) { return i.id; }));
+        insuredIds = new Set(cartItems.map(function (i) { return i.id; }));
+        renderCartSidebar();
+        renderCartItemsMain();
+        updateCoverageHint();
+      }
+
       function renderScenarioCompact() {
         var compact = document.getElementById('scenario-compact');
-        var otherList = document.getElementById('scenario-other-list');
-        if (!compact || !otherList) return;
-        var top4Ids = SCENARIO_TOP4;
-        var restIds = Object.keys(SCENARIO_LABELS).filter(function (k) { return top4Ids.indexOf(k) === -1; });
+        if (!compact) return;
         compact.innerHTML = '';
-        otherList.innerHTML = '';
-        top4Ids.forEach(function (id) {
-          var el = document.createElement('div');
-          el.className = 'compact-opt scenario-compact-opt' + (scenarioId === id ? ' selected' : '');
-          el.textContent = SCENARIO_LABELS[id] || id;
+        SCENARIO_ORDER.forEach(function (id) {
+          var el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'industry-chip' + (scenarioId === id ? ' selected' : '');
+          el.setAttribute('role', 'tab');
+          el.setAttribute('aria-selected', scenarioId === id ? 'true' : 'false');
           el.dataset.scenario = id;
-          el.onclick = function () { scenarioId = id; scenarioSuggested = true; renderScenarioCompact(); fetchAndRenderOptions(); updateSummary(selectedOption); };
+          el.innerHTML =
+            '<span class="industry-chip-icon" aria-hidden="true">' + (SCENARIO_ICONS[id] || '📌') + '</span>' +
+            '<span class="industry-chip-label">' + escapeHtml(SCENARIO_LABELS[id] || id) + '</span>';
+          el.onclick = function () {
+            if (scenarioId === id) return;
+            scenarioId = id;
+            applyScenarioCart(id);
+            renderScenarioCompact();
+            fetchAndRenderOptions();
+            updateSummary(selectedOption);
+          };
           compact.appendChild(el);
         });
-        restIds.forEach(function (id) {
-          var el = document.createElement('div');
-          el.className = 'compact-opt scenario-compact-opt' + (scenarioId === id ? ' selected' : '');
-          el.textContent = SCENARIO_LABELS[id] || id;
-          el.dataset.scenario = id;
-          el.onclick = function () { scenarioId = id; scenarioSuggested = true; renderScenarioCompact(); document.getElementById('scenario-other-toggle').classList.remove('open'); document.getElementById('scenario-other-list').classList.remove('show'); fetchAndRenderOptions(); updateSummary(selectedOption); };
-          otherList.appendChild(el);
-        });
-        var stoggle = document.getElementById('scenario-other-toggle');
-        if (stoggle) {
-          stoggle.style.display = restIds.length ? 'flex' : 'none';
-          stoggle.querySelector('span:last-child').textContent = 'Other product types' + (restIds.length ? ' (' + restIds.length + ')' : '');
-        }
       }
 
       function updateSummary(opt) {
@@ -1264,14 +1396,10 @@
         fetch(API + '/api/quote/rate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
-          body: JSON.stringify({ items: items, jurisdiction: 'US' })
+          body: JSON.stringify({ items: items, jurisdiction: 'US', scenario: scenarioId })
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
-            if (data.suggested_scenario) {
-              scenarioId = data.suggested_scenario;
-              scenarioSuggested = true;
-            }
             allOptions = (data.options && data.options.length) ? data.options : FALLBACK_OPTIONS;
             var recommended = data.recommended || allOptions[0] || null;
             lastRecommended = recommended;
@@ -1309,13 +1437,6 @@
         };
       });
 
-      var scenarioToggle = document.getElementById('scenario-other-toggle');
-      if (scenarioToggle) {
-        scenarioToggle.onclick = function () {
-          this.classList.toggle('open');
-          document.getElementById('scenario-other-list').classList.toggle('show');
-        };
-      }
       var protectionToggle = document.getElementById('protection-other-toggle');
       if (protectionToggle) {
         protectionToggle.onclick = function () {
@@ -1674,6 +1795,7 @@
         updatePayButtonState();
       });
 
+      renderScenarioCompact();
       renderCartSidebar();
       renderCartItemsMain();
       fetchAndRenderOptions();
