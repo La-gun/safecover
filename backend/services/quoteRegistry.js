@@ -13,7 +13,7 @@ function itemsFingerprint(items) {
   return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
 
-function canonicalPayload(parts) {
+function canonicalPayloadV1(parts) {
   const o = {
     quote_id: parts.quote_id,
     premium: Number(parts.premium),
@@ -28,27 +28,125 @@ function canonicalPayload(parts) {
   return JSON.stringify(o);
 }
 
-function signQuote(secret, parts) {
-  return crypto.createHmac('sha256', secret).update(canonicalPayload(parts)).digest('hex');
+function canonicalPayloadV2(parts) {
+  const o = {
+    quote_id: parts.quote_id,
+    premium: Number(parts.premium),
+    provider_id: parts.provider_id || null,
+    plan_id: parts.plan_id || null,
+    scenario: parts.scenario || 'retail',
+    jurisdiction: parts.jurisdiction || 'US',
+    items_fingerprint: parts.items_fingerprint,
+    expires_at: parts.expires_at,
+    partner_id: parts.partner_id || 'anonymous',
+    billing_period: parts.billing_period || 'lump_sum',
+    premium_lump_sum: Number(parts.premium_lump_sum),
+    financed_total: Number(parts.financed_total),
+    installment_count: Number(parts.installment_count),
+    first_installment: Number(parts.first_installment),
+    financing_load_rate: Number(parts.financing_load_rate),
+  };
+  return JSON.stringify(o);
 }
 
-function verifySignature(secret, record) {
-  const expected = signQuote(secret, {
+function signPayload(secret, canonical) {
+  return crypto.createHmac('sha256', secret).update(canonical).digest('hex');
+}
+
+/** @deprecated use signingPartsFromParams + canonicalPayloadV2 */
+function signQuote(secret, parts) {
+  return signPayload(secret, canonicalPayloadV2(parts));
+}
+
+function signingPartsFromParams(params, expires_at) {
+  const premiumBind = Number(params.premium);
+  const lump =
+    params.premium_lump_sum != null && params.premium_lump_sum !== ''
+      ? Number(params.premium_lump_sum)
+      : premiumBind;
+  const bp = params.billing_period || 'lump_sum';
+  return {
+    quote_id: params.quote_id,
+    premium: premiumBind,
+    provider_id: params.provider_id || null,
+    plan_id: params.plan_id || null,
+    scenario: params.scenario || 'retail',
+    jurisdiction: params.jurisdiction || 'US',
+    items_fingerprint: itemsFingerprint(params.items),
+    expires_at,
+    partner_id: params.partner_id || params.partnerId || 'anonymous',
+    billing_period: bp,
+    premium_lump_sum: lump,
+    financed_total:
+      params.financed_total != null && params.financed_total !== '' ? Number(params.financed_total) : lump,
+    installment_count:
+      params.installment_count != null && params.installment_count !== ''
+        ? Number(params.installment_count)
+        : 1,
+    first_installment:
+      params.first_installment != null && params.first_installment !== ''
+        ? Number(params.first_installment)
+        : premiumBind,
+    financing_load_rate:
+      params.financing_load_rate != null && params.financing_load_rate !== ''
+        ? Number(params.financing_load_rate)
+        : 0,
+  };
+}
+
+function recordToSigningParts(record) {
+  const premiumBind = Number(record.premium);
+  const lump = record.premium_lump_sum != null ? Number(record.premium_lump_sum) : premiumBind;
+  const bp = record.billing_period || 'lump_sum';
+  return {
     quote_id: record.quote_id,
-    premium: record.premium,
-    provider_id: record.provider_id,
-    plan_id: record.plan_id,
-    scenario: record.scenario,
-    jurisdiction: record.jurisdiction,
+    premium: premiumBind,
+    provider_id: record.provider_id || null,
+    plan_id: record.plan_id || null,
+    scenario: record.scenario || 'retail',
+    jurisdiction: record.jurisdiction || 'US',
     items_fingerprint: record.items_fingerprint,
     expires_at: record.expires_at,
-    partner_id: record.partner_id,
-  });
+    partner_id: record.partner_id || 'anonymous',
+    billing_period: bp,
+    premium_lump_sum: lump,
+    financed_total: record.financed_total != null ? Number(record.financed_total) : lump,
+    installment_count: record.installment_count != null ? Number(record.installment_count) : 1,
+    first_installment: record.first_installment != null ? Number(record.first_installment) : premiumBind,
+    financing_load_rate: record.financing_load_rate != null ? Number(record.financing_load_rate) : 0,
+  };
+}
+
+function recordToLegacyV1Parts(record) {
+  return {
+    quote_id: record.quote_id,
+    premium: Number(record.premium),
+    provider_id: record.provider_id || null,
+    plan_id: record.plan_id || null,
+    scenario: record.scenario || 'retail',
+    jurisdiction: record.jurisdiction || 'US',
+    items_fingerprint: record.items_fingerprint,
+    expires_at: record.expires_at,
+    partner_id: record.partner_id || 'anonymous',
+  };
+}
+
+function timingSafeEqualHex(a, b) {
   try {
-    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(record.signature, 'hex'));
+    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
   } catch {
     return false;
   }
+}
+
+function verifySignature(secret, record) {
+  const version = record.quote_signing_version;
+  if (version === 2) {
+    const expected = signPayload(secret, canonicalPayloadV2(recordToSigningParts(record)));
+    return timingSafeEqualHex(expected, record.signature);
+  }
+  const expectedLegacy = signPayload(secret, canonicalPayloadV1(recordToLegacyV1Parts(record)));
+  return timingSafeEqualHex(expectedLegacy, record.signature);
 }
 
 /**
@@ -58,45 +156,51 @@ function registerQuote(store, params) {
   const secret = safecoverEnv.getQuoteSigningSecret();
   const ttl = safecoverEnv.quoteTtlMs();
   const expires_at = Date.now() + ttl;
-  const items_fingerprint = itemsFingerprint(params.items);
   const partner_id = params.partner_id || params.partnerId || 'anonymous';
+  const parts = signingPartsFromParams({ ...params, partner_id }, expires_at);
   const record = {
     quote_id: params.quote_id,
     partner_id,
-    premium: Number(params.premium),
-    provider_id: params.provider_id || null,
-    plan_id: params.plan_id || null,
-    scenario: params.scenario || 'retail',
-    jurisdiction: params.jurisdiction || 'US',
-    items_fingerprint,
+    premium: parts.premium,
+    provider_id: parts.provider_id,
+    plan_id: parts.plan_id,
+    scenario: parts.scenario,
+    jurisdiction: parts.jurisdiction,
+    items_fingerprint: parts.items_fingerprint,
     expires_at,
     consumed: 0,
     created_at: new Date().toISOString(),
-    signature: signQuote(secret, {
-      quote_id: params.quote_id,
-      premium: Number(params.premium),
-      provider_id: params.provider_id || null,
-      plan_id: params.plan_id || null,
-      scenario: params.scenario || 'retail',
-      jurisdiction: params.jurisdiction || 'US',
-      items_fingerprint,
-      expires_at,
-      partner_id,
-    }),
+    quote_signing_version: 2,
+    billing_period: parts.billing_period,
+    premium_lump_sum: parts.premium_lump_sum,
+    financed_total: parts.financed_total,
+    installment_count: parts.installment_count,
+    first_installment: parts.first_installment,
+    financing_load_rate: parts.financing_load_rate,
+    schedule: Array.isArray(params.schedule) ? params.schedule : null,
+    signature: signPayload(secret, canonicalPayloadV2(parts)),
   };
   store.saveQuoteRecord(record);
-  return { expires_at: new Date(expires_at).toISOString(), items_fingerprint };
+  return { expires_at: new Date(expires_at).toISOString(), items_fingerprint: parts.items_fingerprint };
 }
 
 /** Register all marketplace options returned to the client (each quote_id bindable). */
 function registerOptionQuotes(store, { partnerId, items, jurisdiction, scenario, options }) {
   for (const o of options || []) {
     if (!o.quote_id) continue;
+    const b = o.billing || {};
     registerQuote(store, {
       quote_id: o.quote_id,
       partner_id: partnerId,
       items,
-      premium: o.premium,
+      premium: b.premium_due_at_bind != null ? b.premium_due_at_bind : o.premium,
+      premium_lump_sum: b.premium_lump_sum != null ? b.premium_lump_sum : o.premium,
+      billing_period: b.billing_period || 'lump_sum',
+      financed_total: b.financed_total,
+      installment_count: b.installment_count,
+      first_installment: b.first_installment,
+      financing_load_rate: b.financing_load_rate,
+      schedule: b.schedule,
       provider_id: o.provider_id,
       plan_id: o.plan_id,
       scenario,
@@ -118,6 +222,7 @@ function evaluateQuoteForBind(store, ctx) {
     scenario,
     items,
     bind_partner_id,
+    billing_period: bindBillingPeriod,
   } = ctx;
 
   const record = store.getQuoteRecord(quote_id);
@@ -147,7 +252,8 @@ function evaluateQuoteForBind(store, ctx) {
     return {
       ok: false,
       code: 'PREMIUM_MISMATCH',
-      error: 'premium_paid does not match quoted premium',
+      error:
+        'premium_paid does not match quoted amount due at bind (premium_due_at_bind / first_installment for installment quotes)',
     };
   }
 
@@ -160,6 +266,14 @@ function evaluateQuoteForBind(store, ctx) {
   }
   if (record.plan_id && (!plan_id || record.plan_id !== plan_id)) {
     return { ok: false, code: 'PLAN_MISMATCH', error: 'plan_id does not match quote' };
+  }
+
+  const recBp = record.billing_period || 'lump_sum';
+  if (bindBillingPeriod != null && String(bindBillingPeriod).trim()) {
+    const b = String(bindBillingPeriod).toLowerCase().trim();
+    if (b !== recBp) {
+      return { ok: false, code: 'BILLING_PERIOD_MISMATCH', error: 'billing_period does not match quote' };
+    }
   }
 
   if (strict && record && (!items || items.length === 0)) {
@@ -186,4 +300,7 @@ module.exports = {
   registerOptionQuotes,
   evaluateQuoteForBind,
   signQuote,
+  canonicalPayloadV1,
+  canonicalPayloadV2,
+  signingPartsFromParams,
 };

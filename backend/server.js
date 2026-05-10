@@ -12,6 +12,7 @@ const fraud = require('./services/fraud');
 const partners = require('./services/partners');
 const coverageOptimizer = require('./services/coverageOptimizer');
 const quoteRegistry = require('./services/quoteRegistry');
+const installmentPricing = require('./services/installmentPricing');
 const insurerCore = require('./services/insurerCore');
 const posEnhanced = require('./services/posEnhanced');
 const certificateService = require('./services/certificateService');
@@ -107,10 +108,25 @@ function validateQuoteItems(items) {
   return { valid: true };
 }
 
-function buildQuoteOptions(actuarialQuotes) {
+function readBillingPeriodFromBody(body) {
+  const res = installmentPricing.normalizeBillingPeriod(body?.billing_period);
+  if (!res.ok) return { ok: false, error: res.error, code: res.code };
+  return { ok: true, billing_period: res.billing_period };
+}
+
+function buildQuoteOptions(actuarialQuotes, quoteCtx = {}) {
+  const scenario = quoteCtx.scenario || defaultScenario;
+  const billing_period = quoteCtx.billing_period || 'lump_sum';
+  const scenarioDurationStr = scenario.duration || '7 days';
+
   return actuarialQuotes.map((q) => {
     const provider = providerMap.get(q.provider_id);
     const plan = planMap.get(`${q.provider_id}:${q.plan_id}`);
+    const billing = installmentPricing.computeBillingPresentation({
+      lumpSumPremium: q.premium,
+      scenarioDurationStr,
+      billing_period,
+    });
     return {
       provider_id: q.provider_id,
       provider_name: q.provider_name,
@@ -119,6 +135,17 @@ function buildQuoteOptions(actuarialQuotes) {
       plan_id: q.plan_id,
       plan_name: q.plan_name,
       premium: q.premium,
+      billing: {
+        billing_period: billing.billing_period,
+        premium_lump_sum: billing.premium_lump_sum,
+        financing_load_rate: billing.financing_load_rate,
+        financed_total: billing.financed_total,
+        installment_count: billing.installment_count,
+        first_installment: billing.first_installment,
+        premium_due_at_bind: billing.premium_due_at_bind,
+        schedule: billing.schedule,
+        policy_term_days: billing.policy_term_days,
+      },
       coverage: q.coverage,
       benefits: plan?.benefits || [],
       summary: plan?.summary || '',
@@ -163,12 +190,16 @@ app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
     const validation = validateQuoteItems(items);
     if (!validation.valid) return err(res, 400, validation.error, 'INVALID_ITEMS');
 
+    const bp = readBillingPeriodFromBody(req.body);
+    if (!bp.ok) return err(res, 400, bp.error, bp.code);
+
     const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
     if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
 
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
+    const scenario = getScenario(scenarioId);
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
-    const options = buildQuoteOptions(actuarialQuotes);
+    const options = buildQuoteOptions(actuarialQuotes, { scenario, billing_period: bp.billing_period });
     quoteRegistry.registerOptionQuotes(store, {
       partnerId: req.partnerId,
       items,
@@ -180,6 +211,7 @@ app.post('/api/quote/compare', authMiddleware, rateLimitQuote, (req, res) => {
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
       cart_value: value,
+      billing_period: bp.billing_period,
       options,
       jurisdiction: comp.jurisdiction,
       disclosures: comp.disclosures || compliance.getDisclosures(comp.jurisdiction),
@@ -354,13 +386,17 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
     const validation = validateQuoteItems(items);
     if (!validation.valid) return err(res, 400, validation.error, 'INVALID_ITEMS');
 
+    const bp = readBillingPeriodFromBody(req.body);
+    if (!bp.ok) return err(res, 400, bp.error, bp.code);
+
     const suggestedScenario = scenarioId || aiSuggestScenario(items);
     const comp = compliance.complianceCheck({ jurisdiction, scenario: suggestedScenario });
     if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
 
     const value = items.reduce((s, i) => s + (i.value || 0), 0);
+    const scenario = getScenario(suggestedScenario);
     const actuarialQuotes = actuarial.generateCompetitiveQuotes(items, suggestedScenario);
-    const options = buildQuoteOptions(actuarialQuotes);
+    const options = buildQuoteOptions(actuarialQuotes, { scenario, billing_period: bp.billing_period });
     const ranked = aiRateOptions(options, value, suggestedScenario);
     quoteRegistry.registerOptionQuotes(store, {
       partnerId: req.partnerId,
@@ -373,6 +409,7 @@ app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, cart_value: value, jurisdiction: comp.jurisdiction });
     res.json({
       cart_value: value,
+      billing_period: bp.billing_period,
       options: ranked,
       recommended: ranked[0] || null,
       suggested_scenario: suggestedScenario,
@@ -462,23 +499,36 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
     const validation = validateQuoteItems(items);
     if (!validation.valid) return err(res, 400, validation.error, 'INVALID_ITEMS');
 
+    const bp = readBillingPeriodFromBody(req.body);
+    if (!bp.ok) return err(res, 400, bp.error, bp.code);
+
     const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
     if (!comp.valid) return err(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
 
     const scenario = getScenario(scenarioId);
-    const value = items.reduce((s, i) => s + (i.value || 0), 0);
     const quotes = actuarial.generateCompetitiveQuotes(items, scenarioId || 'retail');
     if (!quotes.length) {
       return err(res, 503, 'No quotes available (no providers/plans configured)', 'NO_QUOTES');
     }
     const best = quotes.reduce((a, b) => (a.premium < b.premium ? a : b));
-    const premium = best.premium;
+    const billing = installmentPricing.computeBillingPresentation({
+      lumpSumPremium: best.premium,
+      scenarioDurationStr: scenario.duration,
+      billing_period: bp.billing_period,
+    });
     const quoteId = 'QTY' + Date.now();
     quoteRegistry.registerQuote(store, {
       quote_id: quoteId,
       partner_id: req.partnerId,
       items,
-      premium,
+      premium: billing.premium_due_at_bind,
+      premium_lump_sum: billing.premium_lump_sum,
+      billing_period: billing.billing_period,
+      financed_total: billing.financed_total,
+      installment_count: billing.installment_count,
+      first_installment: billing.first_installment,
+      financing_load_rate: billing.financing_load_rate,
+      schedule: billing.schedule,
       provider_id: best.provider_id,
       plan_id: best.plan_id,
       scenario: scenario.id,
@@ -488,7 +538,20 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
     store.recordAnalytics({ type: 'quote', partner_id: req.partnerId, scenario: scenario.id, jurisdiction: comp.jurisdiction });
     res.json({
       quote_id: quoteId,
-      premium,
+      premium: best.premium,
+      premium_due_at_bind: billing.premium_due_at_bind,
+      billing_period: billing.billing_period,
+      billing: {
+        billing_period: billing.billing_period,
+        premium_lump_sum: billing.premium_lump_sum,
+        financing_load_rate: billing.financing_load_rate,
+        financed_total: billing.financed_total,
+        installment_count: billing.installment_count,
+        first_installment: billing.first_installment,
+        premium_due_at_bind: billing.premium_due_at_bind,
+        schedule: billing.schedule,
+        policy_term_days: billing.policy_term_days,
+      },
       scenario: scenario.id,
       jurisdiction: comp.jurisdiction,
       disclosures: comp.disclosures,
@@ -517,6 +580,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       plan_id,
       jurisdiction,
       items,
+      billing_period: bindBillingPeriod,
     } = req.body || {};
 
     if (!quote_id?.trim()) return err(res, 400, 'quote_id is required', 'INVALID_QUOTE_ID');
@@ -576,6 +640,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       scenario: scenarioId,
       items,
       bind_partner_id: req.partnerId,
+      billing_period: bindBillingPeriod,
     });
     if (!quoteEval.ok) {
       return err(res, 400, quoteEval.error, quoteEval.code || 'QUOTE_ERROR');
@@ -609,6 +674,18 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
     const policyId = 'POL_' + Date.now();
     const bcResult = await blockchain.recordPolicy(policyId, customerForPolicy.email, premium, coverage);
 
+    const quoteBilling = quoteEval.record
+      ? {
+          billing_period: quoteEval.record.billing_period || 'lump_sum',
+          premium_lump_sum: quoteEval.record.premium_lump_sum ?? quoteEval.record.premium,
+          financed_total: quoteEval.record.financed_total ?? quoteEval.record.premium,
+          installment_count: quoteEval.record.installment_count ?? 1,
+          financing_load_rate: quoteEval.record.financing_load_rate ?? 0,
+          premium_due_at_bind: quoteEval.record.premium,
+          schedule: quoteEval.record.schedule || null,
+        }
+      : null;
+
     let policy = {
       policy_id: policyId,
       provider_id: effProvider,
@@ -622,6 +699,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       quote_id: quote_id,
       scenario: scenarioId || 'retail',
       jurisdiction: offering.jurisdiction || null,
+      billing: quoteBilling,
       fraud_decision: fraudResult.decision,
       fraud_score: fraudResult.score,
       fraud_reasons: fraudResult.reasons,

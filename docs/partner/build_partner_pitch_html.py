@@ -1,98 +1,11 @@
 # -*- coding: utf-8 -*-
 """Build self-contained partner pitch HTML (run from repo root: python docs/partner/build_partner_pitch_html.py)."""
-import base64
-import io
 from pathlib import Path
+
+from pitch_assets import charts_base64
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "SafeCover-Insurance-Partner-Pitch.html"
-
-
-def make_charts_b64():
-    """Render matplotlib figures to base64 PNG (requires matplotlib)."""
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    def fig_to_b64(fig):
-        buf = io.BytesIO()
-        fig.savefig(
-            buf,
-            format="png",
-            dpi=150,
-            bbox_inches="tight",
-            facecolor="#0f172a",
-            edgecolor="none",
-        )
-        plt.close(fig)
-        return base64.b64encode(buf.getvalue()).decode()
-
-    fig, ax = plt.subplots(figsize=(8, 4), facecolor="#0f172a")
-    ax.set_facecolor("#0f172a")
-    years = [2024, 2026, 2028, 2030]
-    prem = [25, 38, 55, 72]
-    ax.plot(years, prem, color="#38bdf8", linewidth=3, marker="o", markersize=10)
-    ax.fill_between(years, prem, alpha=0.15, color="#38bdf8")
-    ax.set_xlabel("Year", color="#e2e8f0", fontsize=11)
-    ax.set_ylabel("Illustrative embedded premium (USD bn)", color="#e2e8f0", fontsize=10)
-    ax.set_title(
-        "Embedded insurance - indicative growth (discussion only)",
-        color="#f8fafc",
-        fontsize=12,
-        pad=12,
-    )
-    ax.tick_params(colors="#94a3b8")
-    for s in ax.spines.values():
-        s.set_color("#334155")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.grid(True, alpha=0.2, color="#64748b")
-    c1 = fig_to_b64(fig)
-
-    fig, ax = plt.subplots(figsize=(8, 4), facecolor="#0f172a")
-    ax.set_facecolor("#0f172a")
-    labels = ["Lower CAC", "Intent at checkout", "API automation", "Risk data"]
-    vals = [88, 92, 85, 78]
-    colors = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24"]
-    ax.barh(labels, vals, color=colors, height=0.55, alpha=0.9)
-    ax.set_xlim(0, 100)
-    ax.set_xlabel("Qualitative strength index", color="#e2e8f0")
-    ax.set_title(
-        "Carrier partnership value drivers (workshop index)",
-        color="#f8fafc",
-        fontsize=12,
-    )
-    ax.tick_params(colors="#94a3b8")
-    for s in ax.spines.values():
-        s.set_color("#334155")
-    ax.grid(True, axis="x", alpha=0.2, color="#64748b")
-    c2 = fig_to_b64(fig)
-
-    fig, ax = plt.subplots(figsize=(8, 3.5), facecolor="#0f172a")
-    ax.set_facecolor("#0f172a")
-    parts = ["Carrier and capital", "Distributor", "Platform or MGA"]
-    w = [60, 25, 15]
-    cs = ["#0ea5e9", "#a78bfa", "#f59e0b"]
-    cum = 0
-    for p, c in zip(w, cs):
-        ax.barh(0, p, left=cum, color=c, height=0.5, label=p)
-        cum += p
-    ax.set_xlim(0, 100)
-    ax.set_yticks([])
-    ax.legend(
-        loc="upper center",
-        ncol=3,
-        frameon=False,
-        labelcolor="#e2e8f0",
-        fontsize=9,
-    )
-    ax.set_title("Illustrative economics split (example only)", color="#f8fafc")
-    for s in ax.spines.values():
-        s.set_color("#334155")
-    c3 = fig_to_b64(fig)
-
-    return c1, c2, c3
 
 
 def svg_ecosystem():
@@ -231,7 +144,7 @@ def svg_stakeholder():
 
 
 def main():
-    c1, c2, c3 = make_charts_b64()
+    c1, c2, c3 = charts_base64()
     eco, life, stake = svg_ecosystem(), svg_lifecycle(), svg_stakeholder()
 
     html = f"""<!DOCTYPE html>
@@ -444,7 +357,7 @@ def main():
     </section>
 
     <div class="footer">
-      <p><strong>Download:</strong> use <code>docs/partner/SafeCover-Insurance-Partner-Pitch.html</code> (single file, charts embedded) or the generated PDF alongside it. Regenerate with <code>python docs/partner/build_partner_pitch_html.py</code> (requires matplotlib). Print → Save as PDF works from any browser.</p>
+      <p><strong>Download:</strong> use <code>docs/partner/SafeCover-Insurance-Partner-Pitch.html</code> (charts embedded) or <code>SafeCover-Insurance-Partner-Pitch.docx</code> for Word. Regenerate: <code>python docs/partner/build_partner_pitch_html.py</code> and <code>python docs/partner/build_partner_pitch_docx.py</code> (matplotlib; Word build also needs <code>python-docx</code>). Print → Save as PDF from the browser if you need PDF.</p>
     </div>
   </div>
 </body>

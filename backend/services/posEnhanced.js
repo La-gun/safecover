@@ -14,6 +14,7 @@ const certificateService = require('./certificateService');
 const policyholderBilling = require('./policyholderBilling');
 const providers = require('../providers');
 const scenarios = require('../scenarios');
+const installmentPricing = require('./installmentPricing');
 
 const providerMap = new Map(providers.map((p) => [p.id, p]));
 const planMap = new Map();
@@ -178,6 +179,7 @@ async function performBind(req, body, terminal, ticketId, items) {
     scenario: scenarioId,
     items,
     bind_partner_id: partnerId,
+    billing_period: body.billing_period,
   });
   if (!quoteEval.ok) {
     return { ok: false, status: 400, error: quoteEval.error, code: quoteEval.code || 'QUOTE_ERROR' };
@@ -213,6 +215,18 @@ async function performBind(req, body, terminal, ticketId, items) {
 
   const pos_context = posMeta(terminal, ticketId);
 
+  const quoteBilling = quoteEval.record
+    ? {
+        billing_period: quoteEval.record.billing_period || 'lump_sum',
+        premium_lump_sum: quoteEval.record.premium_lump_sum ?? quoteEval.record.premium,
+        financed_total: quoteEval.record.financed_total ?? quoteEval.record.premium,
+        installment_count: quoteEval.record.installment_count ?? 1,
+        financing_load_rate: quoteEval.record.financing_load_rate ?? 0,
+        premium_due_at_bind: quoteEval.record.premium,
+        schedule: quoteEval.record.schedule || null,
+      }
+    : null;
+
   let policy = {
     policy_id: policyId,
     provider_id: effProvider,
@@ -226,6 +240,7 @@ async function performBind(req, body, terminal, ticketId, items) {
     quote_id,
     scenario: scenarioId || 'retail',
     jurisdiction: offering.jurisdiction || null,
+    billing: quoteBilling,
     fraud_decision: fraudResult.decision,
     fraud_score: fraudResult.score,
     fraud_reasons: fraudResult.reasons,
@@ -385,6 +400,9 @@ async function handlePosEnhanced(req, res) {
       const validation = validateQuoteItems(items);
       if (!validation.valid) return jsonErr(res, 400, validation.error, 'INVALID_ITEMS');
 
+      const bp = installmentPricing.normalizeBillingPeriod(body.billing_period);
+      if (!bp.ok) return jsonErr(res, 400, bp.error, bp.code);
+
       const { scenario: scenarioId, jurisdiction } = body;
       const comp = compliance.complianceCheck({ jurisdiction, scenario: scenarioId });
       if (!comp.valid) return jsonErr(res, 400, comp.error || 'Compliance check failed', 'COMPLIANCE_ERROR');
@@ -396,13 +414,24 @@ async function handlePosEnhanced(req, res) {
         return jsonErr(res, 503, 'No quotes available (no providers/plans configured)', 'NO_QUOTES');
       }
       const best = quotes.reduce((a, b) => (a.premium < b.premium ? a : b));
-      const premium = best.premium;
+      const billing = installmentPricing.computeBillingPresentation({
+        lumpSumPremium: best.premium,
+        scenarioDurationStr: scenario.duration,
+        billing_period: bp.billing_period,
+      });
       const quoteId = 'QTY' + Date.now();
       quoteRegistry.registerQuote(store, {
         quote_id: quoteId,
         partner_id: req.partnerId,
         items,
-        premium,
+        premium: billing.premium_due_at_bind,
+        premium_lump_sum: billing.premium_lump_sum,
+        billing_period: billing.billing_period,
+        financed_total: billing.financed_total,
+        installment_count: billing.installment_count,
+        first_installment: billing.first_installment,
+        financing_load_rate: billing.financing_load_rate,
+        schedule: billing.schedule,
         provider_id: best.provider_id,
         plan_id: best.plan_id,
         scenario: scenario.id,
@@ -425,7 +454,20 @@ async function handlePosEnhanced(req, res) {
       return res.json({
         operation: 'quote',
         quote_id: quoteId,
-        premium,
+        premium: best.premium,
+        premium_due_at_bind: billing.premium_due_at_bind,
+        billing_period: billing.billing_period,
+        billing: {
+          billing_period: billing.billing_period,
+          premium_lump_sum: billing.premium_lump_sum,
+          financing_load_rate: billing.financing_load_rate,
+          financed_total: billing.financed_total,
+          installment_count: billing.installment_count,
+          first_installment: billing.first_installment,
+          premium_due_at_bind: billing.premium_due_at_bind,
+          schedule: billing.schedule,
+          policy_term_days: billing.policy_term_days,
+        },
         scenario: scenario.id,
         jurisdiction: comp.jurisdiction,
         disclosures: comp.disclosures,

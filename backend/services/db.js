@@ -110,6 +110,7 @@ function initSchema(database) {
   `);
   migrateFraudColumns(database);
   migratePolicyLifecycleColumns(database);
+  migrateQuoteLedgerColumns(database);
   try {
     database.exec(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_policies_bind_idem ON policies(bind_idempotency_key) WHERE bind_idempotency_key IS NOT NULL'
@@ -153,6 +154,26 @@ function migratePolicyLifecycleColumns(database) {
   }
 }
 
+function migrateQuoteLedgerColumns(database) {
+  try {
+    const cols = database.prepare('PRAGMA table_info(quotes)').all();
+    const names = new Set(cols.map((c) => c.name));
+    const add = (name, ddl) => {
+      if (!names.has(name)) database.exec(ddl);
+    };
+    add('quote_signing_version', 'ALTER TABLE quotes ADD COLUMN quote_signing_version INTEGER');
+    add('billing_period', 'ALTER TABLE quotes ADD COLUMN billing_period TEXT');
+    add('premium_lump_sum', 'ALTER TABLE quotes ADD COLUMN premium_lump_sum REAL');
+    add('financed_total', 'ALTER TABLE quotes ADD COLUMN financed_total REAL');
+    add('installment_count', 'ALTER TABLE quotes ADD COLUMN installment_count INTEGER');
+    add('first_installment', 'ALTER TABLE quotes ADD COLUMN first_installment REAL');
+    add('financing_load_rate', 'ALTER TABLE quotes ADD COLUMN financing_load_rate REAL');
+    add('installment_schedule', 'ALTER TABLE quotes ADD COLUMN installment_schedule TEXT');
+  } catch (e) {
+    console.warn('Quote ledger migration:', e.message);
+  }
+}
+
 function audit(entityType, entityId, action, oldVal, newVal, actor = 'system') {
   const d = getDb();
   if (!d) return;
@@ -191,6 +212,7 @@ function packPolicyExtras(p) {
     'certificate_url',
     'period',
     'schedule',
+    'billing',
     'insured_items',
     'insurer_legal',
     'excess',
@@ -357,11 +379,20 @@ function getPolicyByBindIdempotencyFromDb(key) {
 function saveQuoteRecordToDb(record) {
   const d = getDb();
   if (!d) return record;
+  const sched =
+    record.schedule != null && record.schedule !== ''
+      ? typeof record.schedule === 'string'
+        ? record.schedule
+        : JSON.stringify(record.schedule)
+      : null;
   d.prepare(`
     INSERT OR REPLACE INTO quotes (
       quote_id, partner_id, premium, provider_id, plan_id, scenario, jurisdiction,
-      items_fingerprint, signature, expires_at, consumed, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+      items_fingerprint, signature, expires_at, consumed, created_at,
+      quote_signing_version, billing_period, premium_lump_sum, financed_total,
+      installment_count, first_installment, financing_load_rate, installment_schedule
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')),
+      ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     record.quote_id,
     record.partner_id,
@@ -374,7 +405,15 @@ function saveQuoteRecordToDb(record) {
     record.signature,
     record.expires_at,
     record.consumed ?? 0,
-    record.created_at || null
+    record.created_at || null,
+    record.quote_signing_version ?? null,
+    record.billing_period ?? null,
+    record.premium_lump_sum ?? null,
+    record.financed_total ?? null,
+    record.installment_count ?? null,
+    record.first_installment ?? null,
+    record.financing_load_rate ?? null,
+    sched
   );
   return record;
 }
@@ -384,6 +423,10 @@ function getQuoteRecordFromDb(quoteId) {
   if (!d) return null;
   const r = d.prepare('SELECT * FROM quotes WHERE quote_id = ?').get(quoteId);
   if (!r) return null;
+  let schedule = null;
+  if (r.installment_schedule != null && String(r.installment_schedule).trim()) {
+    schedule = safeParse(r.installment_schedule, null);
+  }
   return {
     quote_id: r.quote_id,
     partner_id: r.partner_id,
@@ -397,6 +440,14 @@ function getQuoteRecordFromDb(quoteId) {
     expires_at: r.expires_at,
     consumed: r.consumed,
     created_at: r.created_at,
+    quote_signing_version: r.quote_signing_version,
+    billing_period: r.billing_period,
+    premium_lump_sum: r.premium_lump_sum,
+    financed_total: r.financed_total,
+    installment_count: r.installment_count,
+    first_installment: r.first_installment,
+    financing_load_rate: r.financing_load_rate,
+    schedule,
   };
 }
 

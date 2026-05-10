@@ -22,9 +22,15 @@ E-commerce and **POS** share the same lifecycle (quote → bind → confirm). **
 
 ## 1. Quote
 
-Get insurance premium for cart items.
+Get insurance premium for cart items. Optional **`billing_period`** controls whether the customer pays **lump sum** or a **financed installment** plan (with an explicit financing load so the sum of installments equals the **financed total**, not a naive `premium ÷ n`).
 
-**Endpoint:** `POST /api/quote`
+**Endpoints:**
+
+- `POST /api/quote` — single best quote (lowest premium).
+- `POST /api/quote/compare` — all marketplace options (same billing on every option).
+- `POST /api/quote/rate` — AI-ranked options (same billing on every option).
+
+**Endpoint (simple quote):** `POST /api/quote`
 
 **Request:**
 ```json
@@ -32,7 +38,8 @@ Get insurance premium for cart items.
   "items": [
     { "value": 49.99 },
     { "value": 120.00 }
-  ]
+  ],
+  "billing_period": "lump_sum"
 }
 ```
 
@@ -40,12 +47,35 @@ Get insurance premium for cart items.
 |-------|------|----------|-------------|
 | items | array | Yes | Line items with `value` (price × quantity) |
 | items[].value | number | Yes | Item subtotal |
+| billing_period | string | No | `lump_sum` (default), `weekly`, or `monthly` |
+| scenario | string | No | Scenario id (default retail) |
+| jurisdiction | string | No | Jurisdiction hint for compliance |
+
+**`billing_period` behaviour**
+
+- **`lump_sum`:** One payment; `premium` (lump) equals `premium_due_at_bind`; no financing load.
+- **`weekly` / `monthly`:** Installment count is derived from the scenario policy term (`duration` parsed to days: e.g. `7 days` → 1 weekly installment; `12 months` → ~12 monthly installments). The **financed total** is `premium_lump_sum × (1 + financing_load_rate)` (defaults: weekly **2%**, monthly **3.5%**; override with `SAFECOVER_FINANCING_LOAD_WEEKLY` / `SAFECOVER_FINANCING_LOAD_MONTHLY`). The server builds an **installment schedule** whose amounts sum to **financed_total** (cent-balanced).
 
 **Response:** `200 OK`
 ```json
 {
   "quote_id": "QTY1739800000000",
   "premium": 0.51,
+  "premium_due_at_bind": 0.51,
+  "billing_period": "lump_sum",
+  "billing": {
+    "billing_period": "lump_sum",
+    "premium_lump_sum": 0.51,
+    "financing_load_rate": 0,
+    "financed_total": 0.51,
+    "installment_count": 1,
+    "first_installment": 0.51,
+    "premium_due_at_bind": 0.51,
+    "schedule": [{ "installment": 1, "amount": 0.51 }],
+    "policy_term_days": 7
+  },
+  "scenario": "retail",
+  "jurisdiction": "US",
   "coverage": {
     "type": "goods-in-transit",
     "max_value": 1000,
@@ -53,6 +83,11 @@ Get insurance premium for cart items.
   }
 }
 ```
+
+- **`premium`** — actuarial **lump sum** for the policy term (unchanged meaning for marketplace rows).
+- **`premium_due_at_bind`** — amount **`premium_paid` must match** when binding (first installment when `billing_period` is `weekly` or `monthly`).
+
+Compare/rate responses echo top-level **`billing_period`** and include the same **`billing`** object on each option.
 
 **Error:** `400`
 ```json
@@ -89,10 +124,13 @@ Reserve a policy when customer opts in at checkout.
 | customer.email | string | Yes | Valid email |
 | customer.name | string | No | Full name |
 | items | array | See note | Line items with `value`; **required in production/strict mode** to verify cart fingerprint matches the quote |
-| premium_paid | number | Yes | Premium amount (must match quoted premium within tolerance) |
+| premium_paid | number | Yes | Must match **`premium_due_at_bind`** from the quote (stored server-side as the quote ledger `premium`): lump sum = full lump premium; weekly/monthly = **first installment** |
+| billing_period | string | No | If sent, must match the quote’s `billing_period` |
 | provider_id / plan_id | string | Recommended | Must match the quoted option when applicable |
 | scenario | string | No | Must match quote scenario |
 | bind_idempotency_key | string | No | Safe retries: same key returns the same policy (or use header `X-Bind-Idempotency-Key`) |
+
+Bound policies include an optional **`billing`** snapshot (lump sum, financed total, schedule, etc.) when the quote record includes billing metadata.
 
 Production behaviour is summarized in [PRODUCTION.md](PRODUCTION.md). After bind, policy `status` is `PENDING_PAYMENT` until **Confirm** succeeds (`ACTIVE`).
 
@@ -189,6 +227,7 @@ Unified **point-of-sale** endpoint: terminal metadata, POS-friendly line items, 
 | ticket_id | string | See below | Receipt or ticket number; used to build `transaction_id` when not sent explicitly |
 | scenario | string | No | Same as `/api/quote` |
 | jurisdiction | string | No | Same as `/api/quote` |
+| billing_period | string | No | Same as `/api/quote` (required shape on `quote`; optional on `bind` if you need explicit match) |
 
 **Transaction id:** If you omit `transaction_id` on bind/confirm/sale, the server uses:
 
@@ -213,11 +252,12 @@ Registers a quote (same ledger rules as `POST /api/quote`). Includes marketplace
   "ticket_id": "TCK-1001",
   "items": [{ "sku": "ABC", "unit_price": 49.99, "quantity": 2 }],
   "scenario": "retail",
-  "jurisdiction": "US"
+  "jurisdiction": "US",
+  "billing_period": "monthly"
 }
 ```
 
-**Response (excerpt):** `quote_id`, `premium`, `coverage`, `scenario`, `jurisdiction`, `disclosures`, `pos`, and when `ticket_id` is set: `suggested_transaction_id`, `suggested_bind_idempotency_key`.
+**Response (excerpt):** `quote_id`, `premium`, `premium_due_at_bind`, `billing_period`, `billing` (schedule and financing fields), `coverage`, `scenario`, `jurisdiction`, `disclosures`, `pos`, and when `ticket_id` is set: `suggested_transaction_id`, `suggested_bind_idempotency_key`.
 
 ### 5.4 operation: `bind`
 
@@ -234,10 +274,13 @@ Same validation as `POST /api/policy/bind` (quote, premium, customer, items fing
   "customer": { "email": "buyer@example.com", "name": "Jane Doe" },
   "items": [{ "value": 99.98 }],
   "premium_paid": 0.51,
+  "billing_period": "lump_sum",
   "provider_id": "safecover",
   "plan_id": "standard"
 }
 ```
+
+Send **`premium_paid`** equal to the quoted **`premium_due_at_bind`** (and **`billing_period`** when you want an explicit match on installment quotes).
 
 **Idempotency:** `X-Bind-Idempotency-Key`, body `bind_idempotency_key`, or a deterministic default from partner + terminal + `ticket_id`.
 
@@ -285,6 +328,8 @@ All errors return:
 |------|------|-------------|
 | INVALID_JSON | 400 | Malformed request body |
 | INVALID_ITEMS | 400 | items missing or invalid |
+| INVALID_BILLING_PERIOD | 400 | `billing_period` must be `lump_sum`, `weekly`, or `monthly` |
+| BILLING_PERIOD_MISMATCH | 400 | Bind `billing_period` does not match quote |
 | INVALID_QUOTE_ID | 400 | quote_id required |
 | INVALID_EMAIL | 400 | Invalid customer email |
 | INVALID_PREMIUM | 400 | premium_paid invalid |

@@ -1446,6 +1446,8 @@
       }
 
       var orderId = 'ORD_' + Date.now();
+      /** Last certificate URL from bind response — GET /api/policy/:id may omit it; do not clear the UI. */
+      var bindCertificateUrl = null;
 
       function setCertificateActions(certificateUrl) {
         var dl = document.getElementById('btn-download-certificate');
@@ -1596,6 +1598,7 @@
         }
 
         var bindFailed = false;
+        bindCertificateUrl = null;
         var customerEmail = (document.getElementById('email').value || '').trim() || 'customer@example.com';
         var phName = (document.getElementById('policyholder-name').value || '').trim();
         var insuredAddr = getInsuredAddressForBind();
@@ -1663,14 +1666,22 @@
             }
             document.getElementById('insurance-invoice-card').style.display = 'block';
             document.getElementById('insurance-contract-card').style.display = 'block';
-            setCertificateActions(res.certificate_url || null);
+            bindCertificateUrl = res.certificate_url || null;
+            setCertificateActions(bindCertificateUrl);
             return fetch(API + '/api/policy/' + res.policy_id, { headers: { 'X-API-Key': 'demo' } });
           })
-          .then(function (r) { return r.json(); })
+          .then(function (r) {
+            if (!r || !r.ok) return null;
+            return r.json();
+          })
           .then(function (policy) {
+            if (!policy || !policy.policy_id) {
+              setCertificateActions(bindCertificateUrl);
+              return;
+            }
             renderInsuranceInvoice(policy, selectedOption);
             renderInsuranceContract(policy);
-            setCertificateActions(policy.certificate_url || null);
+            setCertificateActions(policy.certificate_url || bindCertificateUrl || null);
           })
           .catch(function (err) {
             if (err && err.phase === 'bind') {
@@ -1685,7 +1696,7 @@
             document.getElementById('success-banner').textContent = 'Order complete. Protection added: ' + selectedOption.label + ' (policy details unavailable).';
             document.getElementById('insurance-invoice-card').style.display = 'block';
             document.getElementById('insurance-contract-card').style.display = 'block';
-            setCertificateActions(null);
+            setCertificateActions(bindCertificateUrl);
             renderInsuranceInvoice({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, coverage_details: {} }, selectedOption);
             renderInsuranceContract({ policy_id: orderId, provider_name: selectedOption.label, premium: selectedOption.premium, plan_id: selectedOption.plan_id, coverage_details: {}, transaction_id: orderId, customer: { email: customerEmail }, recorded_at: new Date().toISOString(), status: 'UNKNOWN' });
           })
