@@ -3,6 +3,34 @@
 
 ---
 
+> **⚠️ STATUS: ASPIRATIONAL / ROADMAP DOCUMENT — NOT A DESCRIPTION OF CURRENT CAPABILITY**
+>
+> This document describes the **target end-state** SafeCover is designing toward. It is
+> **not** an accurate description of what exists in the codebase today, and it must not be
+> presented to a regulator, carrier, reinsurer, or investor as evidence of current
+> capability without that distinction being made explicit.
+>
+> As of this review (2026-08-01), the following claims in this document are **not yet
+> implemented**:
+> - Fraud analytics beyond simple velocity/duplicate-transaction/disposable-email rules
+>   (no IMEI capture, no geofencing, no network-graph analysis, no ML/AI monitoring —
+>   see `backend/services/fraud.js` for the actual current logic).
+> - AES-256 field-level encryption at rest (customer PII is currently stored in plaintext
+>   JSON/SQLite — see the recommendations backlog).
+> - OAuth2 and admin 2FA (auth is currently API-key based; see `backend/middleware/auth.js`).
+> - Any capital pool, quota-share/stop-loss reinsurance treaty, statutory deposit, or
+>   regulator-filing pipeline (there is no reinsurance or capital-model logic in the
+>   codebase — this is a design document, not a built system).
+> - The four "providers" referenced throughout this platform (SafeCover, ShieldPro,
+>   CoverMax, AssureX) are placeholder/illustrative data, not real licensed carriers —
+>   see `backend/providers.js`.
+>
+> Treat this document as a product/regulatory-strategy brief describing what SafeCover
+> intends to build toward, subject to qualified external legal and actuarial review before
+> any of it is relied upon or shown externally as current fact.
+
+---
+
 ## Executive Summary
 
 SafeCover is evolving from a single-product insurer into a **universal embedded microinsurance platform** serving retail, mobility, agriculture, finance, health, and event ecosystems across Nigeria and Africa. This submission provides a regulator-ready framework covering: product design (asset, travel, life/health, agri, financial, lifestyle), distribution compliance, fraud controls, capital/reinsurance structures, and POS/API integration.
