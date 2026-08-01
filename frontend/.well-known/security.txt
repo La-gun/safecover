@@ -1,0 +1,4 @@
+Contact: mailto:security@safecover.io
+Preferred-Languages: en
+Policy: https://safecover.io/security-policy
+Expires: 2027-06-24T00:00:00.000Z

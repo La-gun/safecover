@@ -62,7 +62,7 @@
       <div class="checkout-main">
         <h2 class="section-title">Provider & appointment</h2>
         <div class="doctor-card">
-          <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=160&h=160&fit=crop" alt="Dr. Chen">
+          <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=160&h=160&fit=crop" alt="Dr. Chen" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23e9ecef%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23adb5bd%22 font-size=%2212%22>No image</text></svg>'">
           <div class="doctor-info">
             <h3>Dr. Sarah Chen, MD</h3>
             <p>General Practice • Board Certified</p>
@@ -95,7 +95,14 @@
         <div class="order-row"><span>Subtotal</span><span id="subtotal">$0</span></div>
         <div class="order-row" id="protection-row" style="display:none"><span>Appointment protection</span><span id="protection-amount">$0</span></div>
         <div class="order-row total"><span>Total</span><span id="total">$0</span></div>
-        <button class="pay-btn" id="pay-btn">Confirm booking</button>
+        <div class="terms-acceptance" style="margin: 12px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;line-height:1.4;">
+            <input type="checkbox" id="terms-checkbox" style="margin-top:2px;flex-shrink:0;" required>
+            <span>I have read and agree to the <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Insurance Terms & Conditions</a> and <a href="/terms.html#ipid" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Insurance Product Information Document (IPID)</a>. I understand this is a binding insurance contract.</span>
+          </label>
+        </div>
+        <div id="bind-error" style="display:none; margin:12px 0; padding:12px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px; color:#856404; font-size:14px;"></div>
+        <button class="pay-btn" id="pay-btn" disabled>Confirm booking</button>
         <div class="success-banner" id="success-banner"></div>
       </div>
     </div>
@@ -115,11 +122,18 @@
 
     function getCartValue() { return cartItems.reduce(function(s,i){ return s + i.price * (i.qty||1); }, 0); }
 
+    function updatePayBtnState() {
+      var protectionCb = document.getElementById('add-protection');
+      var termsCb = document.getElementById('terms-checkbox');
+      var payBtn = document.getElementById('pay-btn');
+      payBtn.disabled = !(protectionCb.checked && termsCb.checked);
+    }
+
     function renderCart() {
       var html = '';
       cartItems.forEach(function(i) {
         var total = i.price * (i.qty||1);
-        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23e9ecef%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23adb5bd%22 font-size=%2212%22>No image</text></svg>\'"></div>';
         html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div></div>';
         html += '<div class="cart-item-price">$' + total.toFixed(2) + '</div></div>';
       });
@@ -134,7 +148,7 @@
       var items = cartItems.map(function(i){ return { value: i.price * (i.qty||1), name: i.name }; });
       fetch(API + '/api/quote/rate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo', 'X-Correlation-Id': (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2)) },
         body: JSON.stringify({ items: items, scenario: SCENARIO_ID, jurisdiction: 'US' })
       })
         .then(function(r){ return r.json(); })
@@ -162,14 +176,27 @@
         totalEl.textContent = '$' + subtotal.toFixed(2);
         payBtn.textContent = 'Confirm booking $' + subtotal.toFixed(2);
       }
+      updatePayBtnState();
     };
+
+    document.getElementById('terms-checkbox').onchange = updatePayBtnState;
 
     document.getElementById('pay-btn').onclick = function() {
       var btn = this;
       var cb = document.getElementById('add-protection');
+      var termsCb = document.getElementById('terms-checkbox');
       var subtotal = getCartValue();
+
+      if (!termsCb.checked) {
+        document.getElementById('bind-error').textContent = 'Please accept the terms and conditions to proceed';
+        document.getElementById('bind-error').style.display = 'block';
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = 'Processing…';
+      document.getElementById('bind-error').style.display = 'none';
+
       if (!cb.checked || !selectedOption) {
         document.getElementById('success-banner').textContent = 'Booking confirmed. Total: $' + subtotal.toFixed(2);
         document.getElementById('success-banner').classList.add('show');
@@ -177,10 +204,11 @@
         btn.disabled = false;
         return;
       }
-      var orderId = 'APT_' + Date.now() + '_' + SCENARIO_ID;
+      var rawId = 'APT_' + Date.now() + '_' + SCENARIO_ID;
+      var orderId = rawId.replace(/[^a-zA-Z0-9_\-]/g, '');
       fetch(API + '/api/policy/bind', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo', 'X-Correlation-Id': (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2)) },
         body: JSON.stringify({
           quote_id: selectedOption.quote_id,
           transaction_id: orderId,
@@ -192,18 +220,23 @@
           jurisdiction: 'US'
         })
       })
-        .then(function(r){ return r.json(); })
+        .then(function(r){
+          if (!r.ok) { return r.json().then(function(e){ throw e; }); }
+          return r.json();
+        })
         .then(function(res){
+          document.getElementById('bind-error').style.display = 'none';
           document.getElementById('success-banner').textContent = 'Booking confirmed! Policy ' + res.policy_id + ' issued. Appointment protected up to $500.';
           document.getElementById('success-banner').classList.add('show');
           btn.textContent = 'Paid $' + (subtotal + selectedOption.premium).toFixed(2);
         })
-        .catch(function(){
-          document.getElementById('success-banner').textContent = 'Booking confirmed. Protection added.';
-          document.getElementById('success-banner').classList.add('show');
-          btn.textContent = 'Paid $' + (subtotal + selectedOption.premium).toFixed(2);
-        })
-        .finally(function(){ btn.disabled = false; });
+        .catch(function(err){
+          var msg = (err && err.error) ? err.error : 'Please try again.';
+          document.getElementById('bind-error').textContent = 'Payment protection could not be applied: ' + msg;
+          document.getElementById('bind-error').style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Confirm booking $' + (subtotal + selectedOption.premium).toFixed(2);
+        });
     };
 
     renderCart();

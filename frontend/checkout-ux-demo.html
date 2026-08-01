@@ -1636,7 +1636,8 @@
           .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
           .then(function (out) {
             if (!out.ok || !out.body.policy_id) {
-              var bindErr = new Error(out.body.error || 'Could not reserve protection.');
+              var details = out.body.details && out.body.details.length ? ' (' + out.body.details.join(', ') + ')' : '';
+              var bindErr = new Error((out.body.error || 'Could not reserve protection.') + details);
               bindErr.phase = 'bind';
               throw bindErr;
             }

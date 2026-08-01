@@ -21,6 +21,8 @@ const { authMiddleware } = require('./middleware/auth');
 const { rateLimitQuote, rateLimitBind, rateLimitPos } = require('./middleware/rateLimit');
 const { securityHeaders, corsMiddleware } = require('./middleware/corsAndSecurity');
 const { webhookVerifyMiddleware } = require('./middleware/webhookVerify');
+const { validateQuoteBody, validateBindBody, validateClaimBody } = require('./middleware/inputValidation');
+const auditLog = require('./services/auditLog');
 
 safecoverEnv.validateStartupConfig();
 
@@ -101,6 +103,9 @@ providers.forEach((p) => {
   (p.plans || []).forEach((pl) => planMap.set(`${p.id}:${pl.id}`, pl));
 });
 
+/** @deprecated — replaced by validateQuoteBody in middleware/inputValidation.js.
+ * Still used by /api/quote and /api/quote/compare which do not use that middleware.
+ */
 function validateQuoteItems(items) {
   if (!Array.isArray(items) || items.length === 0) return { valid: false, error: 'items must be a non-empty array' };
   const invalid = items.find((i) => typeof i?.value !== 'number' || i.value < 0);
@@ -380,7 +385,7 @@ function aiSuggestScenario(items) {
   return 'retail';
 }
 
-app.post('/api/quote/rate', authMiddleware, rateLimitQuote, (req, res) => {
+app.post('/api/quote/rate', authMiddleware, rateLimitQuote, validateQuoteBody, (req, res) => {
   try {
     const { items, scenario: scenarioId, jurisdiction } = req.body || {};
     const validation = validateQuoteItems(items);
@@ -568,13 +573,14 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
   }
 });
 
-app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => {
+app.post('/api/policy/bind', authMiddleware, rateLimitBind, validateBindBody, async (req, res) => {
   try {
     const {
       quote_id,
       customer,
       transaction_id,
       premium_paid,
+      premium: premiumBody,
       scenario: scenarioId,
       provider_id,
       plan_id,
@@ -582,6 +588,8 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       items,
       billing_period: bindBillingPeriod,
     } = req.body || {};
+    // Accept both premium (normalized by validateBindBody) and legacy premium_paid
+    const _premiumRaw = premiumBody ?? premium_paid;
 
     if (!quote_id?.trim()) return err(res, 400, 'quote_id is required', 'INVALID_QUOTE_ID');
     if (!customer?.email?.includes?.('@')) return err(res, 400, 'customer.email must be a valid email', 'INVALID_EMAIL');
@@ -634,7 +642,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
 
     const quoteEval = quoteRegistry.evaluateQuoteForBind(store, {
       quote_id,
-      premium_paid,
+      premium_paid: _premiumRaw,
       provider_id,
       plan_id,
       scenario: scenarioId,
@@ -657,9 +665,9 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
       return err(res, 403, 'Transaction blocked by fraud rules', 'FRAUD_BLOCK');
     }
 
-    const premium = parseFloat(premium_paid);
+    const premium = parseFloat(_premiumRaw);
     if (isNaN(premium) || premium < 0) {
-      return err(res, 400, 'premium_paid must be a non-negative number', 'INVALID_PREMIUM');
+      return err(res, 400, 'premium must be a non-negative number', 'INVALID_PREMIUM');
     }
 
     const effProvider = provider_id || quoteEval.record?.provider_id || 'safecover';
@@ -729,6 +737,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, async (req, res) => 
     });
 
     store.savePolicy(policy);
+    auditLog.logBind(req, policy, fraudResult);
     if (quoteEval.record) store.consumeQuoteRecord(quote_id);
     store.recordAnalytics({ type: 'bind', policy_id: policyId, premium, commission, partner_id: req.partnerId });
 
@@ -817,7 +826,7 @@ app.post('/api/policy/confirm', authMiddleware, (req, res) => {
   }
 });
 
-app.post('/api/claim', authMiddleware, (req, res) => {
+app.post('/api/claim', authMiddleware, validateClaimBody, (req, res) => {
   try {
     const { policy_id, claim_type, description, amount } = req.body || {};
 
@@ -841,6 +850,7 @@ app.post('/api/claim', authMiddleware, (req, res) => {
     };
 
     store.saveClaim(claim);
+    auditLog.logClaimFiled(req, claim);
     store.recordAnalytics({ type: 'claim', claim_id: claimId, policy_id });
 
     res.status(201).json({
@@ -857,39 +867,54 @@ app.post('/api/claim', authMiddleware, (req, res) => {
 
 app.post('/api/claim/trigger', authMiddleware, (req, res) => {
   try {
-    const { policy_id, trigger_type, trigger_data } = req.body || {};
-
-    if (!policy_id?.trim()) return err(res, 400, 'policy_id is required', 'INVALID_POLICY_ID');
-    if (!trigger_type) return err(res, 400, 'trigger_type is required', 'INVALID_TRIGGER');
+    const { policy_id, trigger_type, trigger_value, trigger_unit, threshold, payout_amount } = req.body || {};
+    if (!policy_id || typeof policy_id !== 'string') return err(res, 400, 'policy_id is required', 'VALIDATION_ERROR');
+    if (!trigger_type || typeof trigger_type !== 'string') return err(res, 400, 'trigger_type is required', 'VALIDATION_ERROR');
 
     const policy = store.getPolicy(policy_id);
-    if (!policy) return err(res, 404, 'Policy not found', 'POLICY_NOT_FOUND');
-    if (policy.status !== 'ACTIVE') {
-      return err(res, 400, 'Parametric triggers require an active policy', 'POLICY_NOT_ACTIVE');
+    if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+
+    // Partner isolation
+    if (req.partnerId && req.partnerId !== 'anonymous' && policy.partner_id && policy.partner_id !== req.partnerId) {
+      return err(res, 403, 'Access denied', 'FORBIDDEN');
     }
 
-    const claimId = 'CLM_' + Date.now();
-    const claim = {
+    const safeValue = parseFloat(trigger_value) || 0;
+    const safePayout = Math.min(parseFloat(payout_amount) || 0, policy.coverage_details?.coverage_amount || 500);
+    const triggered = safeValue > (parseFloat(threshold) || 5);
+
+    const claimId = 'CLM_TRG_' + Date.now();
+    const claim = store.saveClaim({
       claim_id: claimId,
       policy_id,
-      claim_type: 'parametric',
+      claim_type: 'parametric_trigger',
+      trigger_type: trigger_type.slice(0, 100),
+      trigger_data: JSON.stringify({ value: safeValue, unit: trigger_unit || '', threshold: threshold || 5 }),
+      description: `Parametric trigger: ${trigger_type} = ${safeValue} ${trigger_unit || ''} (threshold: ${threshold || 5})`,
+      amount: safePayout,
+      payout_amount: triggered ? safePayout : 0,
+      status: triggered ? 'approved' : 'pending',
+      payout_at: triggered ? new Date().toISOString() : null,
+      recorded_at: new Date().toISOString(),
+      partner_id: req.partnerId,
+    });
+
+    console.log('[SafeCover] Parametric trigger:', req.correlationId || '', policy_id, trigger_type, safeValue, '->', triggered ? 'TRIGGERED' : 'NOT_TRIGGERED');
+
+    res.json({
+      claim_id: claimId,
+      policy_id,
       trigger_type,
-      trigger_data: trigger_data || {},
-      status: 'triggered',
-      created_at: new Date().toISOString(),
-    };
-
-    store.saveClaim(claim);
-    store.recordAnalytics({ type: 'claim', claim_id: claimId, policy_id, trigger_type });
-
-    res.status(201).json({
-      claim_id: claimId,
-      policy_id,
-      status: 'triggered',
-      message: 'Parametric trigger processed. Payout initiated.',
+      trigger_value: safeValue,
+      triggered,
+      payout_amount: triggered ? safePayout : 0,
+      status: triggered ? 'approved' : 'pending',
+      message: triggered
+        ? `Trigger activated. Automatic payout of $${safePayout.toFixed(2)} approved.`
+        : `Trigger condition not met (${safeValue} ${trigger_unit || ''} < threshold ${threshold || 5}).`,
     });
   } catch (e) {
-    console.error('Claim trigger error:', e);
+    console.error('[SafeCover] trigger error', req.correlationId || '', e.message);
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
 });
@@ -924,9 +949,14 @@ app.get('/api/claim/:id', authMiddleware, (req, res) => {
   try {
     const claim = store.claims().find((c) => c.claim_id === req.params.id);
     if (!claim) return err(res, 404, 'Claim not found', 'NOT_FOUND');
+    // Enforce partner ownership — look up the policy to verify partner_id
     const policy = store.getPolicy(claim.policy_id);
+    if (req.partnerId !== 'admin' && claim.partner_id !== req.partnerId && policy?.partner_id !== req.partnerId) {
+      return err(res, 403, 'Access denied', 'FORBIDDEN');
+    }
     res.json({ ...claim, policy });
   } catch (e) {
+    console.error('[SafeCover]', req.method, req.path, req.correlationId || '', e.message);
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
 });
@@ -936,6 +966,11 @@ app.patch('/api/claim/:id', authMiddleware, (req, res) => {
     const { status, payout_amount } = req.body || {};
     const claim = store.claims().find((c) => c.claim_id === req.params.id);
     if (!claim) return err(res, 404, 'Claim not found', 'NOT_FOUND');
+    // Enforce partner ownership
+    const policy = store.getPolicy(claim.policy_id);
+    if (req.partnerId !== 'admin' && claim.partner_id !== req.partnerId && policy?.partner_id !== req.partnerId) {
+      return err(res, 403, 'Access denied', 'FORBIDDEN');
+    }
     const updates = {};
     if (status) updates.status = status;
     if (payout_amount != null) updates.payout_amount = parseFloat(payout_amount);
@@ -943,19 +978,33 @@ app.patch('/api/claim/:id', authMiddleware, (req, res) => {
     const updated = store.updateClaim(req.params.id, updates);
     res.json(updated);
   } catch (e) {
+    console.error('[SafeCover]', req.method, req.path, req.correlationId || '', e.message);
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
 });
 
 app.get('/api/policies', authMiddleware, (req, res) => {
   try {
+    if (!req.partnerId || req.partnerId === 'anonymous') {
+      return err(res, 403, 'Access denied', 'FORBIDDEN');
+    }
     const { email, limit = 50 } = req.query;
+    // Validate email param if provided
+    if (email !== undefined) {
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(email)) {
+        return err(res, 400, 'email query param must be a valid email address', 'INVALID_EMAIL');
+      }
+    }
     let policies = store.policies();
+    // Enforce partner isolation — each partner only sees their own policies
+    policies = policies.filter((p) => p.partner_id === req.partnerId);
     if (email) policies = policies.filter((p) => p.customer?.email === email);
     const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
     policies = policies.slice(-safeLimit).reverse();
     res.json({ policies });
   } catch (e) {
+    console.error('[SafeCover]', req.method, req.path, req.correlationId || '', e.message);
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
 });
@@ -1038,8 +1087,14 @@ app.get('/api/public/certificate/:policy_id', (req, res) => {
 app.get('/api/analytics', authMiddleware, (req, res) => {
   try {
     const data = store.getAnalytics();
-    const policies = store.policies();
-    const claims = store.claims();
+    // Filter to the calling partner's data only — no cross-partner leakage
+    const allPolicies = store.policies();
+    const allClaims = store.claims();
+    const policies = req.partnerId && req.partnerId !== 'anonymous'
+      ? allPolicies.filter((p) => p.partner_id === req.partnerId)
+      : [];
+    const claimPolicyIds = new Set(policies.map((p) => p.policy_id));
+    const claims = allClaims.filter((c) => claimPolicyIds.has(c.policy_id));
     const totalPremium = policies.reduce((s, p) => s + (p.premium || 0), 0);
     const totalCommission = policies.reduce((s, p) => s + (p.commission || 0), 0);
 
@@ -1053,6 +1108,7 @@ app.get('/api/analytics', authMiddleware, (req, res) => {
       claims_count: claims.length,
     });
   } catch (e) {
+    console.error('[SafeCover]', req.method, req.path, req.correlationId || '', e.message);
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
 });
@@ -1081,6 +1137,32 @@ app.get('/api/contract/simulate', authMiddleware, (req, res) => {
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
   }
+});
+
+app.get('/api/health/detailed', authMiddleware, (req, res) => {
+  try {
+    const db = require('./services/db');
+    const dbOk = !!db.getDb();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ok: true,
+      service: 'safecover-api',
+      version: process.env.npm_package_version || '1.0.0',
+      env: process.env.NODE_ENV || 'development',
+      strict_mode: require('./config/safecoverEnv').isStrictMode(),
+      db: dbOk ? 'sqlite' : 'json-fallback',
+      uptime_seconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e) {
+    err(res, 500, 'Health check failed', 'INTERNAL_ERROR');
+  }
+});
+
+app.get('/.well-known/security.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(__dirname, '../frontend/.well-known/security.txt'));
 });
 
 app.get('/', (req, res) => {

@@ -4,7 +4,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '../../data');
+const scenario = process.env.SCENARIO;
+const DATA_DIR = scenario
+  ? path.join(__dirname, '../../data', `scenario-${scenario}`)
+  : path.join(__dirname, '../../data');
 const POLICIES_FILE = path.join(DATA_DIR, 'policies.json');
 const CLAIMS_FILE = path.join(DATA_DIR, 'claims.json');
 const ANALYTICS_FILE = path.join(DATA_DIR, 'analytics.json');

@@ -5,7 +5,10 @@
 const path = require('path');
 const fs = require('fs');
 
-const DATA_DIR = path.join(__dirname, '../../data');
+const scenario = process.env.SCENARIO;
+const DATA_DIR = scenario
+  ? path.join(__dirname, '../../data', `scenario-${scenario}`)
+  : path.join(__dirname, '../../data');
 const DB_PATH = path.join(DATA_DIR, 'safecover.db');
 
 let db = null;

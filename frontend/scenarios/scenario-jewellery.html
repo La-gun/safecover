@@ -78,6 +78,13 @@
           </ul>
           <p class="ipid-note">Your policy includes an Insurance Product Information Document (IPID) summarising cover in plain language per UK regulations.</p>
           <label><input type="checkbox" id="add-protection"> Add protection for <strong id="premium-display">£—</strong></label>
+          <div class="terms-acceptance" style="margin:12px 0;padding:12px;background:#f8f9fa;border-radius:6px;border:1px solid #dee2e6;">
+            <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;line-height:1.4;">
+              <input type="checkbox" id="terms-checkbox" style="margin-top:2px;flex-shrink:0;" required>
+              <span>I have read and agree to the <a href="/terms.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Insurance Terms &amp; Conditions</a> and <a href="/terms.html#ipid" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">IPID</a>. I understand this is a binding insurance contract.</span>
+            </label>
+          </div>
+          <div id="bind-error" style="display:none;margin:12px 0;padding:12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;color:#856404;font-size:14px;"></div>
         </div>
       </div>
       <div class="checkout-sidebar">
@@ -87,7 +94,7 @@
         <div class="order-row" id="protection-row" style="display:none"><span>Jewellery insurance</span><span id="protection-amount">£0</span></div>
         <div class="order-row"><span>Delivery</span><span>Free</span></div>
         <div class="order-row total"><span>Total</span><span id="total">£0</span></div>
-        <button class="pay-btn" id="pay-btn">Checkout</button>
+        <button class="pay-btn" id="pay-btn" disabled>Checkout</button>
         <div class="success-banner" id="success-banner"></div>
       </div>
     </div>
@@ -110,7 +117,7 @@
       var html = '';
       cartItems.forEach(function(i) {
         var total = i.price * (i.qty||1);
-        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" onerror="this.style.display=\'none\'"></div>';
+        html += '<div class="cart-item"><div class="cart-item-img"><img src="' + (i.image||'') + '" alt="" loading="lazy" onerror="this.style.display=\'none\'"></div>';
         html += '<div class="cart-item-details"><div class="cart-item-name">' + i.name + '</div><div class="cart-item-meta">Qty: ' + (i.qty||1) + '</div></div>';
         html += '<div class="cart-item-price">£' + total.toLocaleString() + '</div></div>';
       });
@@ -125,7 +132,7 @@
       var items = cartItems.map(function(i){ return { value: i.price * (i.qty||1), name: i.name }; });
       fetch(API + '/api/quote/rate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo', 'X-Correlation-Id': (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2)) },
         body: JSON.stringify({ items: items, scenario: SCENARIO_ID, jurisdiction: 'UK' })
       })
         .then(function(r){ return r.json(); })
@@ -153,14 +160,34 @@
         totalEl.textContent = '£' + subtotal.toLocaleString();
         payBtn.textContent = 'Checkout £' + subtotal.toLocaleString();
       }
+      updatePayBtnState();
     };
 
-    document.getElementById('pay-btn').onclick = function() {
+    function updatePayBtnState() {
+      var protCb = document.getElementById('add-protection');
+      var termsCb = document.getElementById('terms-checkbox');
+      var btn = document.getElementById('pay-btn');
+      if (btn) btn.disabled = !(protCb && protCb.checked && termsCb && termsCb.checked);
+    }
+    document.getElementById('terms-checkbox').addEventListener('change', updatePayBtnState);
+
+        document.getElementById('pay-btn').onclick = function() {
       var btn = this;
       var cb = document.getElementById('add-protection');
+      var termsCb = document.getElementById('terms-checkbox');
       var subtotal = getCartValue();
+
+      if (!termsCb || !termsCb.checked) {
+        var errDiv = document.getElementById('bind-error');
+        errDiv.textContent = 'Please accept the terms and conditions to proceed.';
+        errDiv.style.display = 'block';
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = 'Processing…';
+      document.getElementById('bind-error').style.display = 'none';
+
       if (!cb.checked || !selectedOption) {
         document.getElementById('success-banner').textContent = 'Order complete! Total: £' + subtotal.toLocaleString();
         document.getElementById('success-banner').classList.add('show');
@@ -168,10 +195,11 @@
         btn.disabled = false;
         return;
       }
+
       var orderId = 'JWL_' + Date.now() + '_' + SCENARIO_ID;
       fetch(API + '/api/policy/bind', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo', 'X-Correlation-Id': (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2)) },
         body: JSON.stringify({
           quote_id: selectedOption.quote_id,
           transaction_id: orderId,
@@ -183,20 +211,25 @@
           jurisdiction: 'UK'
         })
       })
-        .then(function(r){ return r.json(); })
-        .then(function(res){
+        .then(function(r) {
+          if (!r.ok) { return r.json().then(function(e) { throw e; }); }
+          return r.json();
+        })
+        .then(function(res) {
+          document.getElementById('bind-error').style.display = 'none';
           var msg = 'Order complete! Policy ' + res.policy_id + ' issued. Jewellery protected up to £25,000 for 12 months.';
-          if (res.certificate_url) msg += ' <a href="' + res.certificate_url + '" target="_blank" rel="noopener">View IPID Certificate</a>';
+          if (res.certificate_url) msg += ' <a href="' + res.certificate_url + '" target="_blank" rel="noopener">View Certificate</a>';
           document.getElementById('success-banner').innerHTML = msg;
           document.getElementById('success-banner').classList.add('show');
           btn.textContent = 'Paid £' + (subtotal + selectedOption.premium).toLocaleString();
         })
-        .catch(function(){
-          document.getElementById('success-banner').textContent = 'Order complete! Jewellery insurance added.';
-          document.getElementById('success-banner').classList.add('show');
-          btn.textContent = 'Paid £' + (subtotal + selectedOption.premium).toLocaleString();
-        })
-        .finally(function(){ btn.disabled = false; });
+        .catch(function(errData) {
+          var msg = (errData && errData.error) ? errData.error : 'Please try again.';
+          document.getElementById('bind-error').textContent = 'Payment protection could not be applied: ' + msg;
+          document.getElementById('bind-error').style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Checkout £' + (subtotal + selectedOption.premium).toLocaleString();
+        });
     };
 
     renderCart();
