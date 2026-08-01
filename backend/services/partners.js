@@ -19,7 +19,7 @@ function hashKey(key) {
 }
 
 function createPartner(name, sandbox = true, jurisdiction = 'US') {
-  const id = 'partner_' + Date.now();
+  const id = 'partner_' + Date.now() + '_' + crypto.randomBytes(6).toString('hex');
   const apiKey = generateApiKey();
   const hash = hashKey(apiKey);
   const prefix = apiKey.substring(0, 12) + '...';

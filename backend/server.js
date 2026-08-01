@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const safecoverEnv = require('./config/safecoverEnv');
 const scenarios = require('./scenarios');
 const providers = require('./providers');
@@ -42,6 +43,15 @@ app.get('/health', (req, res) => {
 
 const err = (res, status, msg, code = 'VALIDATION_ERROR') =>
   res.status(status).json({ error: msg, code });
+
+/**
+ * Timestamp-prefixed but non-enumerable ID: keeps rough chronological ordering for
+ * debugging while adding 48 bits of randomness so IDs can't be guessed/enumerated
+ * (e.g. by walking sequential POL_<timestamp> values).
+ */
+function genId(prefix) {
+  return `${prefix}_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+}
 
 app.use(securityHeaders);
 app.use(corsMiddleware);
@@ -170,10 +180,26 @@ app.get('/api/compliance/jurisdictions', (req, res) => {
   });
 });
 
-app.post('/api/partners', (req, res) => {
+/**
+ * Partner (and API key) creation.
+ * Security hardening (Sprint 1B): this endpoint used to be open with no auth at all,
+ * and trusted a caller-supplied `sandbox` flag — meaning anyone could self-mint a
+ * "live" (non-sandbox) key with a single unauthenticated request. Now:
+ *  - In strict/production mode, only an authenticated admin (ADMIN_API_KEY) may create
+ *    a partner at all.
+ *  - Outside strict mode (dev/demo), self-service creation is still allowed for trial
+ *    signup, but `sandbox` is always forced true — only an authenticated admin can mint
+ *    a live-tier key.
+ */
+app.post('/api/partners', authMiddleware, (req, res) => {
   try {
-    const { name, sandbox = true, jurisdiction = 'US' } = req.body || {};
-    const partner = partners.createPartner(name || 'New Partner', sandbox, jurisdiction);
+    const strict = safecoverEnv.isStrictMode();
+    if (strict && !req.isAdmin) {
+      return err(res, 403, 'Partner creation requires an admin credential', 'FORBIDDEN');
+    }
+    const { name, sandbox, jurisdiction = 'US' } = req.body || {};
+    const effectiveSandbox = req.isAdmin ? sandbox !== false : true;
+    const partner = partners.createPartner(name || 'New Partner', effectiveSandbox, jurisdiction);
     res.status(201).json(partner);
   } catch (e) {
     err(res, 500, 'Internal server error', 'INTERNAL_ERROR');
@@ -451,7 +477,9 @@ app.post('/api/coverage/recommendations', authMiddleware, rateLimitQuote, (req, 
       builtCandidates = coverageOptimizer.buildCandidatesFromCheckout({
         checkout,
         scenarioHint,
-        currency: 'NGN',
+        // Was hardcoded to 'NGN' regardless of caller/jurisdiction — a real correctness
+        // bug for any non-Naira checkout. Use the caller-supplied currency if present.
+        currency: checkout?.currency || 'USD',
       });
     }
 
@@ -521,7 +549,7 @@ app.post('/api/quote', authMiddleware, rateLimitQuote, (req, res) => {
       scenarioDurationStr: scenario.duration,
       billing_period: bp.billing_period,
     });
-    const quoteId = 'QTY' + Date.now();
+    const quoteId = genId('QTY');
     quoteRegistry.registerQuote(store, {
       quote_id: quoteId,
       partner_id: req.partnerId,
@@ -679,7 +707,7 @@ app.post('/api/policy/bind', authMiddleware, rateLimitBind, validateBindBody, as
     const commissionRate = provider?.commission_rate ?? 0.15;
     const commission = parseFloat((premium * commissionRate).toFixed(2));
 
-    const policyId = 'POL_' + Date.now();
+    const policyId = genId('POL');
     const bcResult = await blockchain.recordPolicy(policyId, customerForPolicy.email, premium, coverage);
 
     const quoteBilling = quoteEval.record
@@ -838,7 +866,7 @@ app.post('/api/claim', authMiddleware, validateClaimBody, (req, res) => {
       return err(res, 400, 'Claims are only accepted for active (confirmed) policies', 'POLICY_NOT_ACTIVE');
     }
 
-    const claimId = 'CLM_' + Date.now();
+    const claimId = genId('CLM');
     const claim = {
       claim_id: claimId,
       policy_id,
@@ -883,7 +911,7 @@ app.post('/api/claim/trigger', authMiddleware, (req, res) => {
     const safePayout = Math.min(parseFloat(payout_amount) || 0, policy.coverage_details?.coverage_amount || 500);
     const triggered = safeValue > (parseFloat(threshold) || 5);
 
-    const claimId = 'CLM_TRG_' + Date.now();
+    const claimId = genId('CLM_TRG');
     const claim = store.saveClaim({
       claim_id: claimId,
       policy_id,
@@ -921,11 +949,25 @@ app.post('/api/claim/trigger', authMiddleware, (req, res) => {
 
 app.get('/api/claims', authMiddleware, (req, res) => {
   try {
+    if (!req.isAdmin && (!req.partnerId || req.partnerId === 'anonymous')) {
+      return err(res, 403, 'Access denied', 'FORBIDDEN');
+    }
     const { policy_id, email, limit = 50 } = req.query;
-    let claims = store.claims();
+    const policies = store.policies();
+    const policyPartnerById = new Map(policies.map((p) => [p.policy_id, p.partner_id]));
+
+    // Partner isolation — each partner only sees their own claims (by direct partner_id,
+    // or via the owning policy for older claim records that predate that field). Admins
+    // (see middleware/auth.js — never derived from a caller-supplied header) see all.
+    let claims = req.isAdmin
+      ? store.claims()
+      : store.claims().filter((c) => (c.partner_id || policyPartnerById.get(c.policy_id)) === req.partnerId);
+
     if (policy_id) claims = claims.filter((c) => c.policy_id === policy_id);
     if (email) {
-      const policyIds = store.policies().filter((p) => p.customer?.email === email).map((p) => p.policy_id);
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(email)) return err(res, 400, 'email query param must be a valid email address', 'INVALID_EMAIL');
+      const policyIds = policies.filter((p) => p.customer?.email === email).map((p) => p.policy_id);
       claims = claims.filter((c) => policyIds.includes(c.policy_id));
     }
     const safeLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
@@ -951,7 +993,7 @@ app.get('/api/claim/:id', authMiddleware, (req, res) => {
     if (!claim) return err(res, 404, 'Claim not found', 'NOT_FOUND');
     // Enforce partner ownership — look up the policy to verify partner_id
     const policy = store.getPolicy(claim.policy_id);
-    if (req.partnerId !== 'admin' && claim.partner_id !== req.partnerId && policy?.partner_id !== req.partnerId) {
+    if (!req.isAdmin && claim.partner_id !== req.partnerId && policy?.partner_id !== req.partnerId) {
       return err(res, 403, 'Access denied', 'FORBIDDEN');
     }
     res.json({ ...claim, policy });
@@ -968,7 +1010,7 @@ app.patch('/api/claim/:id', authMiddleware, (req, res) => {
     if (!claim) return err(res, 404, 'Claim not found', 'NOT_FOUND');
     // Enforce partner ownership
     const policy = store.getPolicy(claim.policy_id);
-    if (req.partnerId !== 'admin' && claim.partner_id !== req.partnerId && policy?.partner_id !== req.partnerId) {
+    if (!req.isAdmin && claim.partner_id !== req.partnerId && policy?.partner_id !== req.partnerId) {
       return err(res, 403, 'Access denied', 'FORBIDDEN');
     }
     const updates = {};
@@ -1013,6 +1055,12 @@ app.get('/api/policy/:id', authMiddleware, (req, res) => {
   try {
     let policy = store.getPolicy(req.params.id);
     if (!policy) return err(res, 404, 'Policy not found', 'NOT_FOUND');
+    // Enforce partner ownership — same pattern as GET /api/claim/:id. Previously this
+    // route had no ownership check at all, so any authenticated caller could fetch any
+    // other partner's policy by ID.
+    if (!req.isAdmin && policy.partner_id && policy.partner_id !== req.partnerId) {
+      return err(res, 403, 'Access denied', 'FORBIDDEN');
+    }
     if (!policy.certificate_token) {
       const scenario = getScenario(policy.scenario);
       const provider = providerMap.get(policy.provider_id);

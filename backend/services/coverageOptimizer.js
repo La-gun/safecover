@@ -209,7 +209,7 @@ function normalizeQuote({ scenarioId, providerId, plan, premiumTotal, limit, ded
  * Build candidates by scenario (product line) from a checkout items array.
  * This is the "rules-first" candidate generation baseline for when caller doesn't supply candidates.
  */
-function buildCandidatesFromCheckout({ checkout, scenarioHint, currency = 'NGN' }) {
+function buildCandidatesFromCheckout({ checkout, scenarioHint, currency = 'USD' }) {
   const items = Array.isArray(checkout?.items) ? checkout.items : [];
   if (items.length === 0) return [];
 

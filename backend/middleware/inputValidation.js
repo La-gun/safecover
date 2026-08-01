@@ -283,11 +283,47 @@ function validateBindBody(req, res, next) {
       }
     }
 
+    // customer.address — optional here; policyholderBilling.js enforces it's required
+    // and semantically valid at bind time. This was previously stripped by the
+    // allowlist rebuild below, which silently broke bind-time address validation for
+    // every real (non-idempotent-replay) request. Sanitize and pass it through instead.
+    let address;
+    if (c.address !== undefined && c.address !== null) {
+      if (typeof c.address !== 'object' || Array.isArray(c.address)) {
+        customerErrors.push('customer.address: must be an object');
+      } else {
+        const a = c.address;
+        address = {};
+        if (a.line1 !== undefined) address.line1 = sanitizeString(a.line1, 200) || '';
+        if (a.line2 !== undefined) address.line2 = sanitizeString(a.line2, 200) || '';
+        if (a.city !== undefined) address.city = sanitizeString(a.city, 100) || '';
+        if (a.region !== undefined) address.region = sanitizeString(a.region, 100) || '';
+        if (a.state !== undefined) address.state = sanitizeString(a.state, 100) || '';
+        if (a.postal_code !== undefined) address.postal_code = sanitizeString(a.postal_code, 20) || '';
+        if (a.country !== undefined) address.country = sanitizeString(a.country, 60) || '';
+      }
+    }
+
     if (customerErrors.length > 0) {
       errors.push(...customerErrors);
     } else {
       customer = { email, name };
       if (phone !== undefined) customer.phone = phone;
+      if (address !== undefined) customer.address = address;
+    }
+  }
+
+  // billing — optional top-level object; policyholderBilling.js uses cardholder_name
+  // to verify it matches the policyholder at bind time. Also previously stripped.
+  let billing;
+  if (body.billing !== undefined && body.billing !== null) {
+    if (typeof body.billing !== 'object' || Array.isArray(body.billing)) {
+      errors.push('billing: must be an object');
+    } else {
+      billing = {};
+      if (body.billing.cardholder_name !== undefined) {
+        billing.cardholder_name = sanitizeString(body.billing.cardholder_name, 200) || '';
+      }
     }
   }
 
@@ -332,6 +368,7 @@ function validateBindBody(req, res, next) {
     scenario,
   };
   if (jurisdiction !== undefined) req.body.jurisdiction = jurisdiction;
+  if (billing !== undefined) req.body.billing = billing;
 
   next();
 }

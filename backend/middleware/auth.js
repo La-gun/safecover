@@ -8,6 +8,12 @@
  *  - Sandbox flag (req.partnerSandbox) set based on key prefix: sk_test_ = sandbox, sk_live_ = production.
  *  - X-Correlation-Id passthrough: uses incoming header or generates a UUID.
  *  - Exports generateCorrelationId helper.
+ *
+ * Security hardening (Sprint 1B):
+ *  - req.isAdmin is set ONLY when the raw credential constant-time-matches ADMIN_API_KEY.
+ *    It is never derived from the client-supplied X-Partner-Id header — that header is
+ *    caller-controlled and must not grant privilege. If ADMIN_API_KEY is unset, no request
+ *    is ever treated as admin (fail closed).
  */
 const crypto = require('crypto');
 const safecoverEnv = require('../config/safecoverEnv');
@@ -28,6 +34,20 @@ function isSandboxKey(key) {
   if (key.startsWith('sk_live_')) return false;
   // Legacy keys with no recognized prefix — treat as production (non-sandbox)
   return false;
+}
+
+/**
+ * Constant-time check of a raw credential against ADMIN_API_KEY.
+ * Never derive admin status from client-supplied headers (e.g. X-Partner-Id) —
+ * only from a verified secret the server itself issued.
+ */
+function isAdminKey(rawKey) {
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (!adminKey || !rawKey) return false;
+  const a = Buffer.from(String(rawKey));
+  const b = Buffer.from(String(adminKey));
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 /**
@@ -90,6 +110,7 @@ function authMiddleware(req, res, next) {
     }
     req.partnerId = req.headers['x-partner-id'] || 'anonymous';
     req.partnerSandbox = true; // Force sandbox in bypass mode
+    req.isAdmin = false; // Bypass mode never grants admin — set ADMIN_API_KEY and use a real key for admin actions.
     return next();
   }
 
@@ -106,6 +127,7 @@ function authMiddleware(req, res, next) {
     req.partnerId = partnerId;
     req.apiKey = rawKey || 'anonymous';
     req.partnerSandbox = rawKey ? isSandboxKey(rawKey) : true;
+    req.isAdmin = isAdminKey(rawKey);
     return next();
   }
 
@@ -120,6 +142,9 @@ function authMiddleware(req, res, next) {
     req.partnerId = partnerId;
     req.apiKey = rawKey;
     req.partnerSandbox = isSandboxKey(rawKey);
+    // Admin is granted ONLY by matching ADMIN_API_KEY, never by the caller-supplied
+    // X-Partner-Id header — a shared API_KEY must not let any holder self-declare 'admin'.
+    req.isAdmin = isAdminKey(rawKey);
     return next();
   }
 
@@ -132,6 +157,8 @@ function authMiddleware(req, res, next) {
     // fall back to key prefix if not present.
     req.partnerSandbox =
       typeof partner.sandbox === 'boolean' ? partner.sandbox : isSandboxKey(rawKey);
+    // Self-service partner keys are never admin, regardless of ADMIN_API_KEY (a distinct secret).
+    req.isAdmin = false;
     return next();
   }
 

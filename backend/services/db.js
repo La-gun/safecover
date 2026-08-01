@@ -4,6 +4,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const scenario = process.env.SCENARIO;
 const DATA_DIR = scenario
@@ -177,13 +178,38 @@ function migrateQuoteLedgerColumns(database) {
   }
 }
 
+/**
+ * Redact PII before it's written to the audit trail. Mirrors services/auditLog.js's
+ * approach (hash + domain only) — the two audit paths had drifted, with this one
+ * writing full plaintext customer.email/name into a persistent DB table.
+ */
+function redactForAudit(value) {
+  if (!value || typeof value !== 'object') return value;
+  let clone;
+  try {
+    clone = JSON.parse(JSON.stringify(value));
+  } catch (e) {
+    return value;
+  }
+  if (clone.customer && typeof clone.customer === 'object') {
+    const email = clone.customer.email || '';
+    clone.customer = {
+      email_hash: email ? crypto.createHash('sha256').update(String(email).toLowerCase()).digest('hex').slice(0, 16) : null,
+      email_domain: email.includes('@') ? email.split('@')[1] : null,
+    };
+  }
+  return clone;
+}
+
 function audit(entityType, entityId, action, oldVal, newVal, actor = 'system') {
   const d = getDb();
   if (!d) return;
   try {
+    const safeOld = redactForAudit(oldVal);
+    const safeNew = redactForAudit(newVal);
     d.prepare(
       'INSERT INTO audit_log (entity_type, entity_id, action, old_value, new_value, actor) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(entityType, entityId, action, oldVal ? JSON.stringify(oldVal) : null, newVal ? JSON.stringify(newVal) : null, actor);
+    ).run(entityType, entityId, action, safeOld ? JSON.stringify(safeOld) : null, safeNew ? JSON.stringify(safeNew) : null, actor);
   } catch (e) {
     console.error('Audit log error:', e.message);
   }
